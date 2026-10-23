@@ -3,8 +3,20 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (157 automated tests: 75 unit + 82 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (162 automated tests: 80 unit + 82 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.10.0: The setup page
+
+- **`npm run setup`** (or `setup.bat` / `setup.sh`) opens a page in your browser to set up and run any number of bots from one PC. It only runs on your computer.
+  - *World and AI:* server, accounts, version, AI provider, model and key, protected players and operators, set once for every bot.
+  - *Bot cards:* name, first words, play style, honesty, personality, talents and starting tiers, an AI provider or model of its own, autonomy, and morals (stealing and sabotage thresholds, grudge fading, players it never targets).
+  - *Randomize:* rolls a whole character (name, play style with matching talents, a personality written from traits, quirks and fears, and an honesty level that sets its morals), keeping whichever parts you tick.
+  - *Run them:* start, stop and restart each bot or all of them. A live tab shows health, food, position and activity, has pause/resume/think controls, a chat box and a `!` command box, and can set feelings, protect players, set skill tiers and switch social features on the fly. It also shows what the bot knows: skills, feelings and why, goals, memories, explored land, finds, thefts and secrets. A log tab streams its output.
+  - *Change bots later:* edits are saved at once and apply on restart (the page says when one is needed); memories, skills and feelings carry over, even through a rename.
+- Each bot still gets an ordinary config file (`bots/<name>.json`) that works from the terminal. The first run copies `config.json` in as the first bot. The `bots` folder is git-ignored because it holds API keys.
+- Bots started by the page take commands and report status over Node's IPC channel (`src/index.js`).
+- Tests: 5 new (randomizer, roster and config files, and the web API driving a stand-in bot process, including that other sites and other computers can't use it).
 
 ## 0.9.0: Real fighting, exploring, and a social life
 

@@ -203,9 +203,46 @@ function shutdown () {
   setTimeout(() => process.exit(0), 500)
 }
 
+// Started from the setup page (src/manager): take commands from it and report how we're doing.
+// Commands count as the console, so operator ! commands work.
+function startManagerLink () {
+  if (typeof process.send !== 'function') return
+  process.on('message', (m) => {
+    if (!m || typeof m !== 'object') return
+    if (m.type === 'quit') return shutdown()
+    if (m.type === 'command') {
+      if (!current) return log.warn('Not connected yet; command ignored.')
+      current.brain.onPlayerChat('Console', String(m.text || ''), { fromConsole: true })
+    }
+  })
+  process.on('disconnect', () => shutdown()) // the setup page was closed
+  const iv = setInterval(() => {
+    try {
+      const c = current
+      const bot = c?.bot
+      const p = bot?.entity?.position
+      process.send({
+        type: 'status',
+        connected: !!(c && bot?.entity),
+        health: bot?.health ?? null,
+        food: bot?.food ?? null,
+        position: p ? { x: Math.floor(p.x), y: Math.floor(p.y), z: Math.floor(p.z) } : null,
+        dimension: bot?.game?.dimension ? String(bot.game.dimension).replace('minecraft:', '') : null,
+        activity: c ? c.executor.describe() : 'connecting...',
+        paused: !!c?.brain.paused,
+        autonomous: config.bot.autonomous !== false,
+        skills: skills.summaryShort(),
+        social: social.on() ? social.status() : 'social off'
+      })
+    } catch {}
+  }, 2000)
+  iv.unref()
+}
+
 process.on('SIGINT', shutdown)
 process.on('unhandledRejection', (err) => log.debug('unhandled rejection: ' + (err?.message || err)))
 process.on('uncaughtException', (err) => log.error('uncaught exception:', err))
 
 createBot()
 startConsole()
+startManagerLink()

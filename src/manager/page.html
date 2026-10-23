@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot setup · MC AI Companion</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --deepslate: #34363d;
+    --deepslate-2: #2a2c31;
+    --stone: #74767a;
+    --paper: #f3efe6;
+    --paper-2: #e8e2d4;
+    --ink: #1f2a1c;
+    --muted: #5d6157;
+    --grass: #5c8a3a;
+    --dirt: #6e4b31;
+    --gold: #e2b33c;
+    --redstone: #c4302b;
+    --redstone-glow: #ff5a4a;
+    --line: #c9c1ae;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Atkinson Hyperlegible", system-ui, sans-serif; font-size: 1rem; line-height: 1.5; color: var(--ink); background: var(--paper); }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", system-ui, sans-serif; margin: 0; line-height: 1.1; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--redstone-glow); outline-offset: 2px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  .hidden { display: none !important; }
+
+  /* The roster lives in a deepslate band at the top, like the bots' names over a dark world. */
+  header.band { background: var(--deepslate); color: #ece9e1; padding: 20px 0 0; }
+  .topline { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; justify-content: space-between; }
+  .topline h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+  .world { font-size: 0.95rem; color: #c8c5bc; margin-top: 4px; }
+  .world button { background: none; border: 0; padding: 0; color: #fff; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .roster { display: flex; gap: 10px; overflow-x: auto; padding: 18px 0 0; scrollbar-width: thin; }
+  .plate {
+    flex: 0 0 auto; min-width: 150px; max-width: 220px; text-align: left; cursor: pointer;
+    background: var(--deepslate-2); color: #ece9e1; border: 0; border-top: 4px solid transparent;
+    padding: 10px 14px 12px; display: grid; gap: 2px;
+  }
+  .plate:hover { background: #24262b; }
+  .plate[aria-current="true"] { background: var(--paper); color: var(--ink); border-top-color: var(--redstone); }
+  .plate .nm { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+  .plate .sub { font-size: 0.85rem; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .plate.add { border: 2px dashed #6b6e76; background: transparent; color: #c8c5bc; align-content: center; min-width: 120px; margin-bottom: 8px; }
+  .plate.add:hover { color: #fff; border-color: #a3a6ae; }
+
+  /* A redstone torch: lit while the bot is running. */
+  .torch { width: 8px; height: 14px; display: inline-block; position: relative; background: linear-gradient(#6b4a2b, #6b4a2b) 2px 5px / 4px 9px no-repeat; flex: 0 0 auto; }
+  .torch::before { content: ""; position: absolute; left: 1px; top: 0; width: 6px; height: 6px; background: #5a2320; }
+  .torch.on::before { background: var(--redstone-glow); box-shadow: 0 0 8px 2px rgba(255, 90, 74, 0.75); }
+  .torch.wait::before { background: var(--gold); }
+
+  .btn { border: 3px solid var(--ink); background: var(--ink); color: var(--paper); font-weight: 700; padding: 8px 14px; cursor: pointer; box-shadow: 3px 3px 0 var(--redstone); }
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--redstone); }
+  .btn:active { transform: none; box-shadow: 1px 1px 0 var(--redstone); }
+  .btn.quiet, .btn.quiet.small { background: transparent; color: inherit; box-shadow: none; }
+  .btn.quiet:hover { background: rgba(0,0,0,0.06); transform: none; }
+  .btn.light { border-color: #ece9e1; background: #ece9e1; color: var(--ink); }
+  .btn.light.quiet { background: transparent; color: #ece9e1; box-shadow: none; }
+  .btn.small { padding: 4px 10px; font-size: 0.9rem; box-shadow: 2px 2px 0 var(--redstone); }
+  .btn.danger { border-color: var(--redstone); color: var(--redstone); background: transparent; box-shadow: none; }
+  .btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+  main.wrap { padding: 30px 16px 60px; }
+  .head { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; margin-bottom: 14px; }
+  .head h2 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.03em; }
+  .head .tags { color: var(--muted); margin-top: 6px; }
+  .state { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; }
+  .vitals { font-family: "Silkscreen", monospace; font-size: 0.82rem; letter-spacing: 0.02em; }
+  .notice { border-left: 4px solid var(--gold); background: #fbf4dc; padding: 10px 14px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+  .notice.err { border-color: var(--redstone); background: #fbe5e2; }
+
+  nav.tabs { display: flex; gap: 2px; border-bottom: 3px solid var(--ink); margin: 18px 0 22px; overflow-x: auto; }
+  nav.tabs button { border: 0; background: transparent; padding: 10px 16px 8px; font-weight: 700; cursor: pointer; color: var(--muted); white-space: nowrap; }
+  nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--paper); }
+  nav.tabs button:disabled { opacity: 0.4; cursor: default; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; }
+  .grid .full { grid-column: 1 / -1; }
+  label.f { display: grid; gap: 4px; font-weight: 700; font-size: 0.95rem; }
+  label.f small, .hint { font-weight: 400; color: var(--muted); font-size: 0.88rem; }
+  input[type=text], input[type=number], input[type=password], select, textarea {
+    border: 2px solid var(--ink); background: #fffdf8; padding: 8px 10px; width: 100%; border-radius: 0; font-weight: 400;
+  }
+  textarea { min-height: 150px; resize: vertical; line-height: 1.45; }
+  fieldset { border: 2px solid var(--line); padding: 14px 16px 16px; margin: 0; }
+  legend { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 1.1rem; padding: 0 6px; }
+  .check { display: inline-flex; align-items: center; gap: 6px; font-weight: 400; cursor: pointer; }
+  .check input { width: 18px; height: 18px; accent-color: var(--ink); }
+
+  /* Randomizer: a dice strip with locks. */
+  .dice { border: 3px solid var(--ink); padding: 14px 16px; background: var(--paper-2); display: grid; gap: 10px; }
+  .dice h3 { font-size: 1.15rem; }
+  .locks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+  .talents { display: grid; gap: 10px; }
+  .talent { display: grid; grid-template-columns: 8rem 1fr 9.5rem 14rem; gap: 12px; align-items: center; }
+  .talent .v { font-size: 0.92rem; }
+  input[type=range] { width: 100%; accent-color: var(--dirt); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .stat { border: 2px solid var(--line); padding: 8px 12px; }
+  .stat b { display: block; font-size: 0.85rem; color: var(--muted); font-weight: 400; }
+  .stat span { font-weight: 700; }
+  .bar { height: 8px; background: var(--paper-2); margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--grass); }
+  .bar.food i { background: #b8792e; }
+
+  .list { margin: 0; padding: 0; list-style: none; }
+  .list li { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  .list li:last-child { border-bottom: 0; }
+  .feel { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .meter { position: relative; height: 10px; background: linear-gradient(90deg, #c4302b 0 10%, #d98a6e 10% 25%, #e7d9c4 25% 60%, #9bc27a 60% 75%, #5c8a3a 75%); margin-top: 3px; }
+  .meter i { position: absolute; top: -3px; width: 4px; height: 16px; background: var(--ink); transform: translateX(-2px); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 28px; }
+
+  .log { background: #17181b; color: #e2dfd6; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.84rem; line-height: 1.45; height: 420px; overflow: auto; padding: 10px 12px; white-space: pre-wrap; word-break: break-word; }
+  .log .err { color: #ff8f84; }
+  .log .manager { color: var(--gold); }
+  .log .brain { color: #d7a8f5; }
+  .log .chat { color: #9fe08a; }
+  .log .warn { color: #f1c86a; }
+
+  .empty { border: 3px dashed var(--line); padding: 36px 24px; text-align: center; }
+  .empty h2 { font-size: 1.8rem; margin-bottom: 8px; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-left: 4px solid var(--grass); max-width: 90vw; z-index: 20; }
+  .toast.err { border-color: var(--redstone-glow); }
+  dialog { border: 3px solid var(--ink); padding: 0; max-width: 680px; width: calc(100% - 24px); background: var(--paper); }
+  dialog::backdrop { background: rgba(20, 21, 24, 0.6); }
+  dialog .in { padding: 20px 22px; display: grid; gap: 16px; }
+  dialog h2 { font-size: 1.6rem; }
+
+  @media (max-width: 760px) {
+    .grid, .cols { grid-template-columns: 1fr; }
+    .talent { grid-template-columns: 1fr 5rem; }
+    .talent input[type=range] { grid-column: 1 / -1; grid-row: 2; }
+    .talent select { grid-column: 1 / -1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .btn:hover { transform: none; } }
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="wrap">
+    <div class="topline">
+      <div>
+        <h1>Your bots</h1>
+        <div class="world" id="worldLine">Loading…</div>
+      </div>
+      <div class="row">
+        <button class="btn light small" id="startAll">Start all</button>
+        <button class="btn light quiet small" id="stopAll">Stop all</button>
+      </div>
+    </div>
+    <div class="roster" id="roster" role="tablist" aria-label="Bots"></div>
+  </div>
+</header>
+
+<main class="wrap" id="main"></main>
+
+<dialog id="worldDlg">
+  <form method="dialog" class="in" id="worldForm">
+    <h2>World and AI</h2>
+    <p class="hint" style="margin:0">Every bot joins this world and uses this AI unless its own card says otherwise.</p>
+    <div class="grid">
+      <label class="f">Server address <input type="text" name="host" required></label>
+      <label class="f">Port <small>A LAN world shows it in chat when you open it.</small><input type="number" name="port" min="1" max="65535" required></label>
+      <label class="f">Accounts
+        <select name="auth"><option value="offline">Offline (server has online-mode off)</option><option value="microsoft">Microsoft accounts (one per bot)</option></select>
+      </label>
+      <label class="f">Minecraft version <small>Leave empty to detect it.</small><input type="text" name="version" placeholder="e.g. 1.21.4"></label>
+      <label class="f">AI provider <select name="provider" id="providerSel"></select></label>
+      <label class="f">Model <input type="text" name="model"></label>
+      <label class="f full">API key <small id="keyHint">Not needed for Ollama.</small><input type="password" name="apiKey" autocomplete="off" placeholder=""></label>
+      <label class="f full">Provider address <small>Only change this for a non-standard server.</small><input type="text" name="baseUrl"></label>
+      <label class="f full">Players never stolen from or sabotaged <small>Comma-separated. Put any humans here.</small><input type="text" name="protected"></label>
+      <label class="f full">Server operators who can command every bot <small>Comma-separated.</small><input type="text" name="admins"></label>
+    </div>
+    <div class="row"><button class="btn" value="save" id="worldSave">Save</button><button class="btn quiet" value="cancel" formnovalidate>Cancel</button></div>
+  </form>
+</dialog>
+
+<script>
+'use strict'
+const $ = (s, el = document) => el.querySelector(s)
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+let S = { shared: null, bots: [], catalog: null }
+let selected = null
+let tab = 'character'
+let draft = null // the bot being edited (unsaved changes)
+let dirty = false
+let logSeq = 0
+let mindCache = null
+
+async function api (method, url, body) {
+  const res = await fetch(url, { method, headers: { 'content-type': 'application/json', 'x-mc-manager': '1' }, body: body ? JSON.stringify(body) : undefined })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`)
+  return data
+}
+
+function toast (text, err = false) {
+  const t = document.createElement('div')
+  t.className = 'toast' + (err ? ' err' : '')
+  t.setAttribute('role', 'status')
+  t.textContent = text
+  document.body.appendChild(t)
+  setTimeout(() => t.remove(), err ? 6000 : 2600)
+}
+
+const bot = (id) => S.bots.find(b => b.id === id)
+const label = (list, id) => (list.find(x => x.id === id) || {}).label || ''
+
+// ------------------------------------------------------------------ loading and polling
+async function load () {
+  S = await api('GET', '/api/state')
+  if (!selected || !bot(selected)) selected = S.bots[0]?.id || null
+  if (selected && (!draft || draft.id !== selected)) { draft = structuredClone(bot(selected)); dirty = false }
+  renderAll()
+}
+
+async function poll () {
+  try {
+    const st = await api('GET', '/api/state')
+    S.shared = st.shared
+    for (const b of st.bots) {
+      const cur = bot(b.id)
+      if (cur) Object.assign(cur, { running: b.running, status: b.status, needsRestart: b.needsRestart, exitCode: b.exitCode, startedAt: b.startedAt })
+    }
+    if (st.bots.length !== S.bots.length) S.bots = st.bots
+    renderRoster(); renderWorld(); renderHeadState()
+    if (tab === 'live') renderLive(false)
+  } catch {}
+}
+
+// ------------------------------------------------------------------ top band
+function renderWorld () {
+  const m = S.shared.minecraft
+  const p = S.shared.llm.provider
+  const model = S.shared.llm.providers?.[p]?.model || ''
+  $('#worldLine').innerHTML = `Joining <b>${esc(m.host)}:${esc(m.port)}</b> with ${esc(p)}${model ? ` (${esc(model)})` : ''}. <button id="editWorld">Change world and AI</button>`
+  $('#editWorld').onclick = openWorld
+}
+
+function statusLine (b) {
+  if (!b.running) return b.exitCode ? 'Stopped (crashed)' : 'Stopped'
+  if (!b.status) return 'Starting…'
+  if (!b.status.connected) return 'Connecting…'
+  const a = String(b.status.activity || '').replace(/^Current: /, '').replace(/ \{.*?\} for \d+s/, '')
+  return b.status.paused ? 'Paused' : a
+}
+
+function renderRoster () {
+  const r = $('#roster')
+  r.innerHTML = S.bots.map(b => `
+    <button class="plate" role="tab" aria-current="${b.id === selected}" data-id="${b.id}">
+      <span class="nm"><span class="torch ${b.running ? (b.status?.connected ? 'on' : 'wait') : ''}" aria-hidden="true"></span>${esc(b.name)}</span>
+      <span class="sub">${esc(label(S.catalog.archetypes, b.archetype) || 'Custom')} · ${esc(statusLine(b))}</span>
+    </button>`).join('') +
+    '<button class="plate add" id="addRandom">Add a random bot</button><button class="plate add" id="addBlank">Add a bot you write</button>'
+  for (const el of r.querySelectorAll('.plate[data-id]')) el.onclick = () => select(el.dataset.id)
+  $('#addRandom').onclick = () => addBot(true)
+  $('#addBlank').onclick = () => addBot(false)
+}
+
+async function select (id) {
+  if (dirty && !confirm('Leave without saving your changes?')) return
+  selected = id
+  draft = structuredClone(bot(id))
+  dirty = false
+  logSeq = 0
+  mindCache = null
+  if (tab === 'log' || tab === 'live') tab = bot(id).running ? tab : 'character'
+  renderAll()
+}
+
+async function addBot (random) {
+  try {
+    const body = random ? { random: true } : { bot: { name: '', personality: '' }, random: false }
+    if (!random) {
+      const name = prompt('Name for the new bot (3-16 letters, numbers or _):')
+      if (!name) return
+      body.bot = { name, personality: `You are ${name}, a Minecraft player with your own plans and opinions.` }
+    }
+    const { bot: b } = await api('POST', '/api/bots', body)
+    S.bots.push(b)
+    dirty = false
+    selected = b.id
+    draft = structuredClone(b)
+    tab = 'character'
+    renderAll()
+    toast(`${b.name} added`)
+  } catch (e) { toast(e.message, true) }
+}
+
+// ------------------------------------------------------------------ main panel
+function renderAll () {
+  renderWorld(); renderRoster(); renderMain()
+}
+
+function renderMain () {
+  const main = $('#main')
+  if (!S.bots.length) {
+    main.innerHTML = `<div class="empty"><h2>No bots yet</h2><p>Add one with its own name, personality and play style, or roll a random one and tweak it.</p>
+      <div class="row" style="justify-content:center"><button class="btn" id="e1">Add a random bot</button><button class="btn quiet" id="e2">Add a bot you write</button></div></div>`
+    $('#e1').onclick = () => addBot(true); $('#e2').onclick = () => addBot(false)
+    return
+  }
+  const b = bot(selected)
+  main.innerHTML = `
+    <div class="head">
+      <div>
+        <h2 id="bname">${esc(b.name)}</h2>
+        <div class="tags">${esc(label(S.catalog.archetypes, b.archetype) || 'Custom style')}${b.morals ? `, ${esc(label(S.catalog.morals, b.morals).toLowerCase())}` : ''}</div>
+      </div>
+      <div class="state" id="headState"></div>
+    </div>
+    <div id="notices"></div>
+    <nav class="tabs" role="tablist">
+      ${[['character', 'Who they are'], ['skills', 'Skills'], ['brain', 'Brain and morals'], ['live', 'Live'], ['log', 'Log']]
+        .map(([id, l]) => `<button role="tab" data-tab="${id}" aria-selected="${tab === id}">${l}</button>`).join('')}
+    </nav>
+    <section id="panel"></section>`
+  for (const t of main.querySelectorAll('nav.tabs button')) t.onclick = () => { tab = t.dataset.tab; renderMain() }
+  renderHeadState()
+  const panel = $('#panel')
+  if (tab === 'character') renderCharacter(panel)
+  if (tab === 'skills') renderSkills(panel)
+  if (tab === 'brain') renderBrain(panel)
+  if (tab === 'live') renderLive(true)
+  if (tab === 'log') renderLog(panel)
+}
+
+function renderHeadState () {
+  const b = bot(selected)
+  const el = $('#headState')
+  if (!b || !el) return
+  const st = b.status
+  el.innerHTML = `
+    <span class="torch ${b.running ? (st?.connected ? 'on' : 'wait') : ''}" aria-hidden="true"></span>
+    <span>${esc(statusLine(b))}</span>
+    ${st?.connected ? `<span class="vitals" title="health and food">♥ ${Math.round(st.health)} food ${st.food}</span>` : ''}
+    ${b.running
+      ? '<button class="btn small" id="hStop">Stop</button><button class="btn quiet small" id="hRestart">Restart</button>'
+      : '<button class="btn small" id="hStart">Start</button>'}`
+  $('#hStart') && ($('#hStart').onclick = () => run('start'))
+  $('#hStop') && ($('#hStop').onclick = () => run('stop'))
+  $('#hRestart') && ($('#hRestart').onclick = () => run('restart'))
+  const n = $('#notices')
+  if (n) {
+    const parts = []
+    if (b.running && b.needsRestart) parts.push(`<div class="notice"><span>Saved changes take effect when ${esc(b.name)} restarts. Memories, skills and feelings are kept.</span><button class="btn small" id="nRestart">Restart now</button></div>`)
+    if (!b.running && b.exitCode) parts.push(`<div class="notice err"><span>${esc(b.name)} stopped unexpectedly. The Log tab shows why.</span></div>`)
+    n.innerHTML = parts.join('')
+    $('#nRestart') && ($('#nRestart').onclick = () => run('restart'))
+  }
+  for (const t of document.querySelectorAll('nav.tabs button')) if (t.dataset.tab === 'live') t.disabled = !b.running
+}
+
+async function run (what) {
+  const b = bot(selected)
+  if (dirty && what !== 'stop') { if (!await save(true)) return }
+  try {
+    const { bot: nb } = await api('POST', `/api/bots/${b.id}/${what}`)
+    Object.assign(b, nb)
+    toast(what === 'start' ? `Starting ${b.name}` : what === 'stop' ? `${b.name} stopped` : `Restarting ${b.name}`)
+    if (what === 'stop' && tab === 'live') tab = 'log'
+    renderAll()
+  } catch (e) { toast(e.message, true) }
+}
+
+function markDirty () {
+  dirty = true
+  const s = $('#saveBar')
+  if (s) s.classList.remove('hidden')
+}
+
+function saveBar () {
+  return `<div class="row" style="margin-top:22px"><button class="btn" id="saveBtn">Save changes</button>
+    <span class="hint ${dirty ? '' : 'hidden'}" id="saveBar">Unsaved changes</span>
+    <span style="flex:1"></span><button class="btn danger small" id="delBtn">Delete this bot</button></div>`
+}
+
+function wireSave () {
+  $('#saveBtn').onclick = () => save(false)
+  $('#delBtn').onclick = async () => {
+    const b = bot(selected)
+    if (b.running) return toast(`Stop ${b.name} before deleting it`, true)
+    if (!confirm(`Delete ${b.name}? Its memory file stays in the memory folder.`)) return
+    try {
+      await api('DELETE', `/api/bots/${b.id}`)
+      S.bots = S.bots.filter(x => x.id !== b.id)
+      selected = S.bots[0]?.id || null
+      draft = selected ? structuredClone(bot(selected)) : null
+      dirty = false
+      renderAll()
+      toast(`${b.name} deleted`)
+    } catch (e) { toast(e.message, true) }
+  }
+}
+
+async function save (quiet) {
+  try {
+    const { bot: nb } = await api('PUT', `/api/bots/${selected}`, { bot: draft })
+    Object.assign(bot(selected), nb)
+    draft = structuredClone(nb)
+    dirty = false
+    if (!quiet) toast(nb.running && nb.needsRestart ? 'Saved. Restart to apply.' : 'Saved')
+    renderAll()
+    return true
+  } catch (e) { toast(e.message, true); return false }
+}
+
+// ---- Who they are
+function renderCharacter (panel) {
+  const d = draft
+  const opt = (list, v) => '<option value="">Custom</option>' + list.map(x => `<option value="${x.id}" ${x.id === v ? 'selected' : ''}>${esc(x.label)}</option>`).join('')
+  panel.innerHTML = `
+    <div class="grid">
+      <label class="f">Name <small>What it's called in game. Renaming keeps its memories.</small><input type="text" id="fName" value="${esc(d.name)}" maxlength="16"></label>
+      <label class="f">First words <small>Said in chat when it joins. Leave empty for silence.</small><input type="text" id="fGreet" value="${esc(d.greeting)}"></label>
+      <label class="f">Play style <small>Sets which skills it learns fastest.</small><select id="fArch">${opt(S.catalog.archetypes, d.archetype)}</select></label>
+      <label class="f">Honesty <small>How willing it is to steal or get even.</small><select id="fMorals">${opt(S.catalog.morals, d.morals)}</select></label>
+      <label class="f full">Personality <small>The bot reads this before every decision. Write it like you're describing a character.</small><textarea id="fPers">${esc(d.personality)}</textarea></label>
+      ${S.shared.minecraft.auth === 'microsoft' ? `<label class="f full">Microsoft account email <small>Each bot needs its own account that owns Minecraft.</small><input type="text" id="fAcct" value="${esc(d.account)}"></label>` : ''}
+      <div class="dice full">
+        <h3>Roll something new</h3>
+        <div class="hint">Ticked parts stay as they are; everything else is rolled again.</div>
+        <div class="locks">
+          ${[['name', 'Name'], ['archetype', 'Play style'], ['morals', 'Honesty'], ['personality', 'Personality'], ['talents', 'Talents'], ['greeting', 'First words']]
+            .map(([k, l]) => `<label class="check"><input type="checkbox" data-lock="${k}" ${k === 'name' ? 'checked' : ''}> Keep ${l.toLowerCase()}</label>`).join('')}
+        </div>
+        <div class="row"><button class="btn" id="roll">Randomize</button></div>
+      </div>
+    </div>${saveBar()}`
+  const bind = (sel, key) => { $(sel).oninput = (e) => { d[key] = e.target.value; markDirty() } }
+  bind('#fName', 'name'); bind('#fGreet', 'greeting'); bind('#fPers', 'personality')
+  if ($('#fAcct')) bind('#fAcct', 'account')
+  $('#fArch').onchange = (e) => {
+    d.archetype = e.target.value
+    markDirty()
+    if (d.archetype && confirm('Also set its talents to suit this play style?')) roll(['name', 'archetype', 'morals', 'personality', 'greeting'])
+  }
+  $('#fMorals').onchange = (e) => {
+    d.morals = e.target.value
+    const m = S.catalog.morals.find(x => x.id === d.morals)
+    if (m) d.social = mergeSocial(d.social, m.social)
+    markDirty()
+  }
+  $('#roll').onclick = () => roll([...panel.querySelectorAll('[data-lock]')].filter(c => c.checked).map(c => c.dataset.lock))
+  wireSave()
+}
+
+function mergeSocial (cur = {}, add = {}) {
+  const out = structuredClone(cur || {})
+  for (const [k, v] of Object.entries(add)) out[k] = { ...(out[k] || {}), ...v }
+  return out
+}
+
+async function roll (locks) {
+  const keep = {}
+  for (const k of locks) keep[k] = draft[k]
+  try {
+    const { bot: r } = await api('POST', '/api/random', { id: draft.id, keep })
+    // A new name is only taken if it wasn't locked; the personality text mentions the name.
+    Object.assign(draft, { name: r.name, archetype: r.archetype, morals: r.morals, personality: r.personality, greeting: r.greeting, talents: r.talents })
+    if (!locks.includes('morals')) draft.social = mergeSocial(draft.social, r.social)
+    markDirty()
+    renderMain()
+    toast('Rolled. Save to keep it.')
+  } catch (e) { toast(e.message, true) }
+}
+
+// ---- Skills
+function renderSkills (panel) {
+  const d = draft
+  const words = (v) => v >= 1.45 ? 'a natural' : v >= 1.15 ? 'quick learner' : v <= 0.7 ? 'struggles' : v <= 0.9 ? 'a bit slow' : 'normal'
+  panel.innerHTML = `
+    <p class="hint" style="max-width:62ch">Every bot starts as a beginner and gets better by doing. Talent sets how fast it learns each skill: a natural builder levels up in half the time a clumsy one does.</p>
+    <fieldset><legend>Talents and starting level</legend>
+      <div class="talents">
+        ${S.catalog.skills.map(s => `
+          <div class="talent">
+            <label for="t_${s.id}"><b>${esc(s.label)}</b></label>
+            <input type="range" id="t_${s.id}" min="0.5" max="2" step="0.1" value="${d.talents[s.id] ?? 1}">
+            <span class="v" id="tv_${s.id}">${(d.talents[s.id] ?? 1).toFixed(1)}x ${words(d.talents[s.id] ?? 1)}</span>
+            <select id="st_${s.id}" aria-label="${esc(s.label)} starting tier">
+              <option value="">Start: default</option>
+              ${s.tiers.map((t, i) => `<option value="${i + 1}" ${d.startTiers[s.id] === i + 1 ? 'selected' : ''}>Start: ${i + 1} ${esc(t)}</option>`).join('')}
+            </select>
+          </div>`).join('')}
+      </div>
+    </fieldset>
+    <div class="grid" style="margin-top:18px">
+      <label class="f">Default starting tier <small>For skills set to "default". 1 is a beginner; existing bots keep what they've earned.</small>
+        <select id="fStart">${[1, 2, 3, 4].map(n => `<option ${d.startTier === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+    </div>${saveBar()}`
+  for (const s of S.catalog.skills) {
+    $(`#t_${s.id}`).oninput = (e) => { const v = Number(e.target.value); d.talents[s.id] = v; $(`#tv_${s.id}`).textContent = `${v.toFixed(1)}x ${words(v)}`; markDirty() }
+    $(`#st_${s.id}`).onchange = (e) => { if (e.target.value) d.startTiers[s.id] = Number(e.target.value); else delete d.startTiers[s.id]; markDirty() }
+  }
+  $('#fStart').onchange = (e) => { d.startTier = Number(e.target.value); markDirty() }
+  wireSave()
+}
+
+// ---- Brain and morals
+function renderBrain (panel) {
+  const d = draft
+  d.social = d.social || {}
+  const sv = (f, k, def) => d.social[f]?.[k] ?? def
+  const providers = Object.keys(S.shared.llm.providers || {})
+  panel.innerHTML = `
+    <div class="grid">
+      <fieldset><legend>Brain</legend>
+        <div style="display:grid;gap:14px">
+          <label class="f">AI provider <small>Give each bot its own model if you like.</small>
+            <select id="fProv"><option value="">Same as everyone (${esc(S.shared.llm.provider)})</option>${providers.map(p => `<option ${d.provider === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+          <label class="f">Model <small>Empty uses the provider's model.</small><input type="text" id="fModel" value="${esc(d.model)}"></label>
+          <label class="check"><input type="checkbox" id="fAuto" ${d.autonomous ? 'checked' : ''}> Acts on its own when nobody needs it</label>
+          <label class="f">Seconds idle before it decides something itself <small>Higher is cheaper with cloud AI.</small><input type="number" id="fIdle" min="3" max="600" value="${d.idleThinkSeconds}"></label>
+          <label class="f">Answers chat <select id="fResp"><option value="all" ${d.respondTo === 'all' ? 'selected' : ''}>from everyone</option><option value="mention" ${d.respondTo === 'mention' ? 'selected' : ''}>only when its name is mentioned</option></select></label>
+        </div>
+      </fieldset>
+      <fieldset><legend>Morals</legend>
+        <div style="display:grid;gap:14px">
+          <label class="check"><input type="checkbox" id="sSteal" ${sv('stealing', 'enabled', true) ? 'checked' : ''}> Can steal from players it dislikes</label>
+          <label class="f"><span>Steals from players it feels <span id="sStealV">${sv('stealing', 'feelingAtMost', -20)}</span> or worse about</span>
+            <input type="range" id="sStealR" min="-100" max="0" step="5" value="${sv('stealing', 'feelingAtMost', -20)}"></label>
+          <label class="check"><input type="checkbox" id="sSab" ${sv('sabotage', 'enabled', true) ? 'checked' : ''}> Can sabotage players it deeply hates</label>
+          <label class="f"><span>Sabotages at <span id="sSabV">${sv('sabotage', 'feelingAtMost', -80)}</span> or worse (deep hatred)</span>
+            <input type="range" id="sSabR" min="-100" max="-50" step="5" value="${sv('sabotage', 'feelingAtMost', -80)}"></label>
+          <label class="f"><span>Grudges fade by <span id="sDecV">${sv('feelings', 'decayPerDay', 2)}</span> points a day</span>
+            <input type="range" id="sDecR" min="0" max="10" step="0.5" value="${sv('feelings', 'decayPerDay', 2)}"></label>
+          <label class="f">Never steals from or sabotages <small>Comma-separated. Everyone in World and AI is protected too.</small>
+            <input type="text" id="sProt" value="${esc((d.social.protected || []).join(', '))}"></label>
+        </div>
+      </fieldset>
+    </div>${saveBar()}`
+  const set = (f, k, v) => { d.social[f] = { ...(d.social[f] || {}), [k]: v }; markDirty() }
+  $('#fProv').onchange = (e) => { d.provider = e.target.value; markDirty() }
+  $('#fModel').oninput = (e) => { d.model = e.target.value; markDirty() }
+  $('#fAuto').onchange = (e) => { d.autonomous = e.target.checked; markDirty() }
+  $('#fIdle').oninput = (e) => { d.idleThinkSeconds = Number(e.target.value); markDirty() }
+  $('#fResp').onchange = (e) => { d.respondTo = e.target.value; markDirty() }
+  $('#sSteal').onchange = (e) => set('stealing', 'enabled', e.target.checked)
+  $('#sSab').onchange = (e) => set('sabotage', 'enabled', e.target.checked)
+  $('#sStealR').oninput = (e) => { $('#sStealV').textContent = e.target.value; set('stealing', 'feelingAtMost', Number(e.target.value)) }
+  $('#sSabR').oninput = (e) => { $('#sSabV').textContent = e.target.value; set('sabotage', 'feelingAtMost', Number(e.target.value)) }
+  $('#sDecR').oninput = (e) => { $('#sDecV').textContent = e.target.value; set('feelings', 'decayPerDay', Number(e.target.value)) }
+  $('#sProt').oninput = (e) => { d.social.protected = e.target.value.split(',').map(s => s.trim()).filter(Boolean); markDirty() }
+  wireSave()
+}
+
+// ---- Live
+async function command (text) {
+  try { await api('POST', `/api/bots/${selected}/command`, { text }); toast(`Sent: ${text}`) } catch (e) { toast(e.message, true) }
+}
+
+async function renderLive (full) {
+  const b = bot(selected)
+  const panel = $('#panel')
+  if (!panel) return
+  if (!b.running) { panel.innerHTML = `<p>${esc(b.name)} isn't running. Start it to control it live.</p>`; return }
+  const st = b.status || {}
+  if (full || !$('#liveStats')) {
+    const others = S.bots.filter(x => x.id !== b.id).map(x => x.name)
+    panel.innerHTML = `
+      <div class="stats" id="liveStats"></div>
+      <div class="cols">
+        <fieldset><legend>Control</legend>
+          <div style="display:grid;gap:14px">
+            <div class="row">
+              <button class="btn small" data-cmd="!pause">Pause</button>
+              <button class="btn small" data-cmd="!resume">Resume</button>
+              <button class="btn quiet small" data-cmd="!stop">Stop current task</button>
+              <button class="btn quiet small" data-cmd="!think">Decide something now</button>
+            </div>
+            <div class="row"><span>Acts on its own:</span><button class="btn quiet small" data-cmd="!autonomy on">On</button><button class="btn quiet small" data-cmd="!autonomy off">Off</button></div>
+            <form class="row" id="talkForm"><input type="text" id="talk" placeholder="Say something to ${esc(b.name)}" style="flex:1;min-width:180px"><button class="btn small">Say</button></form>
+            <form class="row" id="cmdForm"><input type="text" id="cmd" placeholder="!command (e.g. !goals, !skill mining tier 3)" style="flex:1;min-width:180px"><button class="btn small">Run</button></form>
+            <p class="hint" style="margin:0">Changes here apply right away and are kept in its memory.</p>
+          </div>
+        </fieldset>
+        <fieldset><legend>Change its mind</legend>
+          <div style="display:grid;gap:14px">
+            <div class="row">
+              <input type="text" id="feelWho" list="who" placeholder="Player" style="width:9rem">
+              <input type="range" id="feelV" min="-100" max="100" step="5" value="0" style="flex:1;min-width:120px" aria-label="Feeling">
+              <span class="vitals" id="feelVV">0</span>
+              <button class="btn small" id="feelSet">Set feeling</button>
+            </div>
+            <div class="row">
+              <input type="text" id="protWho" list="who" placeholder="Player" style="width:9rem">
+              <button class="btn quiet small" id="protOn">Protect</button><button class="btn quiet small" id="protOff">Unprotect</button>
+            </div>
+            <div class="row">
+              <select id="skId" style="width:auto">${S.catalog.skills.map(s => `<option value="${s.id}">${esc(s.label)}</option>`).join('')}</select>
+              <select id="skTier" style="width:auto"></select>
+              <button class="btn small" id="skSet">Set tier</button>
+              <button class="btn quiet small" id="skNat">Back to earning it</button>
+            </div>
+            <div>
+              <div class="hint" style="margin-bottom:6px">Feelings, stealing and the rest, for this bot only:</div>
+              <div class="row"><select id="socF" style="width:auto">${S.catalog.socialFeatures.map(f => `<option value="${f}">${esc(f.replace('theftDetection', 'theft detection'))}</option>`).join('')}</select>
+                <button class="btn quiet small" id="socOn">Turn on</button><button class="btn quiet small" id="socOff">Turn off</button></div>
+            </div>
+            <datalist id="who">${others.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+          </div>
+        </fieldset>
+      </div>
+      <h3 style="margin:26px 0 12px;font-size:1.5rem">What ${esc(b.name)} knows</h3>
+      <div id="mind"><p class="hint">Reading its memory…</p></div>`
+    for (const el of panel.querySelectorAll('[data-cmd]')) el.onclick = () => command(el.dataset.cmd)
+    $('#talkForm').onsubmit = (e) => { e.preventDefault(); const t = $('#talk').value.trim(); if (t) { command(t); $('#talk').value = '' } }
+    $('#cmdForm').onsubmit = (e) => { e.preventDefault(); let t = $('#cmd').value.trim(); if (!t) return; if (!t.startsWith('!')) t = '!' + t; command(t); $('#cmd').value = '' }
+    $('#feelV').oninput = (e) => { $('#feelVV').textContent = e.target.value }
+    $('#feelSet').onclick = () => { const w = $('#feelWho').value.trim(); if (w) command(`!feel ${w} ${$('#feelV').value}`) }
+    $('#protOn').onclick = () => { const w = $('#protWho').value.trim(); if (w) command(`!protect ${w}`) }
+    $('#protOff').onclick = () => { const w = $('#protWho').value.trim(); if (w) command(`!unprotect ${w}`) }
+    const fillTiers = () => {
+      const s = S.catalog.skills.find(x => x.id === $('#skId').value)
+      $('#skTier').innerHTML = s.tiers.map((t, i) => `<option value="${i + 1}">${i + 1} ${esc(t)}</option>`).join('')
+    }
+    $('#skId').onchange = fillTiers; fillTiers()
+    $('#skSet').onclick = () => command(`!skill ${$('#skId').value} tier ${$('#skTier').value}`)
+    $('#skNat').onclick = () => command(`!skill ${$('#skId').value} natural`)
+    $('#socOn').onclick = () => command(`!social ${$('#socF').value} on`)
+    $('#socOff').onclick = () => command(`!social ${$('#socF').value} off`)
+    loadMind()
+  }
+  const pct = (v) => Math.max(0, Math.min(100, (v / 20) * 100))
+  $('#liveStats').innerHTML = st.connected ? `
+    <div class="stat"><b>Health</b><span>${Math.round(st.health)}/20</span><div class="bar"><i style="width:${pct(st.health)}%"></i></div></div>
+    <div class="stat"><b>Food</b><span>${st.food}/20</span><div class="bar food"><i style="width:${pct(st.food)}%"></i></div></div>
+    <div class="stat"><b>Where</b><span>${st.position ? `${st.position.x} ${st.position.y} ${st.position.z}` : '?'}</span> <span class="hint">${esc(st.dimension || '')}</span></div>
+    <div class="stat" style="grid-column:span 2"><b>Doing</b><span>${esc(String(st.activity || '').replace(/^Current: /, ''))}</span></div>`
+    : `<div class="stat"><b>Status</b><span>${esc(statusLine(b))}</span></div>`
+}
+
+async function loadMind () {
+  const el = $('#mind')
+  if (!el) return
+  try {
+    const m = await api('GET', `/api/bots/${selected}/mind`)
+    mindCache = m
+    if (!m.exists) { el.innerHTML = '<p class="hint">Nothing yet: its memory file appears after it first joins the world.</p>'; return }
+    const pos = (v) => `${((v + 100) / 200) * 100}%`
+    el.innerHTML = `<div class="cols">
+      <div><h3 style="margin-bottom:8px">Skills</h3><ul class="list">${m.skills.map(s => `<li><b>${esc(s.label)}</b> ${s.tier ? `tier ${s.tier}/${s.max} ${esc(s.name)}` : esc(s.name)}
+        <span class="hint">${[s.nextXp ? `${s.xp}/${s.nextXp} XP` : s.tier ? 'top tier' : '', s.fixed ? 'set by an operator' : '', s.talent !== 1 ? `talent ${s.talent}x` : ''].filter(Boolean).join(', ')}</span></li>`).join('')}</ul></div>
+      <div><h3 style="margin-bottom:8px">Feelings</h3>${m.feelings.length ? `<ul class="list">${m.feelings.map(f => `<li class="feel"><div><b>${esc(f.name)}</b> <span class="hint">${esc(f.level)}${f.protected ? ', protected' : ''}${f.why.length ? `: ${esc(f.why.join('; '))}` : ''}</span><div class="meter" aria-hidden="true"><i style="left:${pos(f.score)}"></i></div></div><span class="vitals">${f.score > 0 ? '+' : ''}${f.score}</span></li>`).join('')}</ul>` : '<p class="hint">No strong feelings about anyone yet.</p>'}
+        <h3 style="margin:18px 0 8px">Goals</h3>${m.goals.length ? `<ul class="list">${m.goals.map(g => `<li>${esc(g.text)}</li>`).join('')}</ul>` : '<p class="hint">None right now.</p>'}</div>
+      <div><h3 style="margin-bottom:8px">Recently</h3><ul class="list">${m.journal.slice().reverse().map(j => `<li>${esc(j.text)}</li>`).join('') || '<li class="hint">Nothing yet.</li>'}</ul></div>
+      <div><h3 style="margin-bottom:8px">Map and finds</h3><p style="margin:0 0 8px">${m.explored}% of the land within 192 blocks of home explored. ${m.places} saved place${m.places === 1 ? '' : 's'}.</p>
+        ${m.finds.length ? `<ul class="list">${m.finds.map(f => `<li>${esc(f.label)} <span class="hint">${f.x} ${f.y} ${f.z}</span></li>`).join('')}</ul>` : ''}
+        ${m.thefts.length ? `<h3 style="margin:18px 0 8px">Stolen from it</h3><ul class="list">${m.thefts.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : ''}
+        ${m.myThefts.length || m.sabotage.length ? `<h3 style="margin:18px 0 8px">Its secrets</h3><ul class="list">${m.myThefts.map(t => `<li>Took ${esc(Object.entries(t.items).map(([n, c]) => `${c} ${n}`).join(', '))} from ${esc(t.victim)}</li>`).join('')}${m.sabotage.map(t => `<li>Sabotaged ${esc(t.victim)} (${esc(t.kind)})</li>`).join('')}</ul>` : ''}</div>
+    </div>`
+  } catch (e) { el.innerHTML = `<p class="hint">Couldn't read its memory: ${esc(e.message)}</p>` }
+}
+
+// ---- Log
+function renderLog (panel) {
+  panel.innerHTML = `<div class="log" id="log" aria-live="polite"></div>
+    <div class="row" style="margin-top:10px"><span class="hint">Everything ${esc(bot(selected).name)} prints, newest at the bottom.</span></div>`
+  logSeq = 0
+  pullLog()
+}
+
+async function pullLog () {
+  const el = $('#log')
+  if (!el || tab !== 'log') return
+  try {
+    const { lines, seq } = await api('GET', `/api/bots/${selected}/log?since=${logSeq}`)
+    if (seq < logSeq) { logSeq = 0; el.textContent = ''; return }
+    const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 30
+    for (const l of lines) {
+      const div = document.createElement('div')
+      const kind = l.kind !== 'out' ? l.kind : /\[brain\]/.test(l.text) ? 'brain' : /\[chat\]/.test(l.text) ? 'chat' : /\[(warn|reflex)\]/.test(l.text) ? 'warn' : /\[error\]/.test(l.text) ? 'err' : ''
+      div.className = kind
+      div.textContent = l.text
+      el.appendChild(div)
+    }
+    while (el.childNodes.length > 800) el.removeChild(el.firstChild)
+    logSeq = seq
+    if (!el.childNodes.length) el.innerHTML = '<div class="manager">No output yet. Press Start to launch this bot.</div>'
+    if (stick) el.scrollTop = el.scrollHeight
+  } catch {}
+}
+
+// ------------------------------------------------------------------ world dialog
+function openWorld () {
+  const f = $('#worldForm')
+  const s = S.shared
+  f.host.value = s.minecraft.host
+  f.port.value = s.minecraft.port
+  f.auth.value = s.minecraft.auth || 'offline'
+  f.version.value = s.minecraft.version || ''
+  const providers = Object.keys(s.llm.providers || {})
+  $('#providerSel').innerHTML = providers.map(p => `<option ${p === s.llm.provider ? 'selected' : ''}>${esc(p)}</option>`).join('')
+  const fill = () => {
+    const p = s.llm.providers[$('#providerSel').value] || {}
+    f.model.value = p.model || ''
+    f.baseUrl.value = p.baseUrl || ''
+    f.apiKey.value = ''
+    f.apiKey.placeholder = p.apiKeySet ? 'Saved. Type a new key to replace it.' : ''
+    $('#keyHint').textContent = $('#providerSel').value === 'ollama' ? 'Not needed for Ollama.' : 'Stored on this computer only, in the bots folder.'
+  }
+  $('#providerSel').onchange = fill
+  fill()
+  f.protected.value = (s.social?.protected || []).join(', ')
+  f.admins.value = (s.bot?.admins || []).join(', ')
+  $('#worldDlg').showModal()
+}
+
+$('#worldForm').onsubmit = async (e) => {
+  if (e.submitter?.value !== 'save') return
+  e.preventDefault()
+  const f = e.target
+  const provider = $('#providerSel').value
+  const list = (v) => v.split(',').map(x => x.trim()).filter(Boolean)
+  try {
+    const { shared } = await api('PUT', '/api/shared', {
+      minecraft: { host: f.host.value, port: Number(f.port.value), auth: f.auth.value, version: f.version.value },
+      llm: { provider, providers: { [provider]: { model: f.model.value, baseUrl: f.baseUrl.value, apiKey: f.apiKey.value } } },
+      social: { protected: list(f.protected.value) },
+      bot: { admins: list(f.admins.value) }
+    })
+    S.shared = shared
+    $('#worldDlg').close()
+    toast(S.bots.some(b => b.running) ? 'Saved. Restart running bots to apply.' : 'Saved')
+    await load()
+  } catch (err) { toast(err.message, true) }
+}
+
+$('#startAll').onclick = async () => { try { const r = await api('POST', '/api/start-all'); S.bots = r.bots; renderAll(); toast('Starting every bot') } catch (e) { toast(e.message, true) } }
+$('#stopAll').onclick = async () => { try { const r = await api('POST', '/api/stop-all'); S.bots = r.bots; if (tab === 'live') tab = 'log'; renderAll(); toast('All bots stopped') } catch (e) { toast(e.message, true) } }
+window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = '' } })
+
+load().then(() => {
+  if (!S.bots.length) openWorld()
+  setInterval(poll, 2000)
+  setInterval(pullLog, 1500)
+  setInterval(() => { if (tab === 'live') loadMind() }, 8000)
+}).catch(e => { $('#main').innerHTML = `<div class="notice err">Couldn't load: ${esc(e.message)}</div>` })
+</script>
+</body>
+</html>

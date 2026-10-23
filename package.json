@@ -1,13 +1,14 @@
 {
   "name": "mc-ai-companion",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "A Minecraft companion bot: an LLM brain for talking and decisions, plus a fast code-driven body for movement, combat, exploring, mining and building, with feelings and a social life.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test",
     "test:sim": "node --test sim/world.sim.js sim/combat.sim.js sim/social.sim.js",
-    "test:all": "npm test && npm run test:sim"
+    "test:all": "npm test && npm run test:sim",
+    "setup": "node src/manager/index.js"
   },
   "engines": {
     "node": ">=20"

@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.9.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.10.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, crafts and smelts · fights with real technique (bows, crits, strafing) · explores and maps the land · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · holds lasting feelings about every player, knows whose base is whose, notices theft, and (if it comes to that) steals a little · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (157 automated tests: 75 unit + 82 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (162 automated tests: 80 unit + 82 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -93,6 +93,10 @@ Blueprints and other content work best as data, so new variety (house styles, pa
 
 ## Quick start
 
+**The easy way: the setup page.** Run `npm run setup` (on Windows, double-click `setup.bat`). Your browser opens a page where you set the world and the AI once, then add as many bots as you like, each with its own name, personality, play style, talents, morals and AI model, or roll random ones. Start, stop and control them all from the same page. See *The setup page* below.
+
+**By hand:**
+
 1. Unzip the folder. Open a terminal in it and run:
    ```
    npm install
@@ -105,6 +109,23 @@ Blueprints and other content work best as data, so new variety (house styles, pa
    ```
    On Windows you can also double-click `start.bat`. It installs packages the first time.
 5. Talk to it in game chat: *"hey, can you get me some wood?"*
+
+## The setup page
+
+`npm run setup` (or `setup.bat` / `setup.sh`) starts a small page at `http://localhost:3000` and opens it in your browser. It only runs on your computer: nothing is put online, and other computers can't reach it. Leave the window open while the bots play; closing it stops every bot it started.
+
+- **World and AI** (asked the first time): the server address and port, offline or Microsoft accounts, the Minecraft version, the AI provider, model and key, players to protect from stealing and sabotage, and operators.
+- **Bots:** each bot gets a card with tabs:
+  - *Who they are:* name, first words, play style, honesty and the personality text. **Randomize** rolls a new character; tick the parts you want to keep (the name, the personality, the talents...).
+  - *Skills:* how fast it learns each skill (talent sliders) and which tier it starts at.
+  - *Brain and morals:* its own AI provider or model if you like, whether it acts on its own, how quickly it decides things, and its morals: whether and when it steals or sabotages, how fast grudges fade, and who it never targets.
+  - *Live* (while it runs): health, food, position and what it's doing; pause, resume, stop its task, make it decide something, switch autonomy; talk to it or send any `!` command (the page counts as an operator); set how it feels about a player, protect players, set skill tiers and switch social features. Below that, what it knows: skills and XP, feelings with the reasons, goals, recent memories, explored land and finds, thefts from it, and its own secrets.
+  - *Log:* everything it prints, live.
+- **Changing a bot later:** live controls apply at once. Edits to its card (personality, name, model, talents, morals) are saved straight away and apply when it restarts; the page shows a *Restart now* button. A restart keeps its memories, skills and feelings, and renaming a bot keeps them too.
+
+**Play styles** (the randomizer picks one, or choose it yourself): builder, miner, warrior, explorer, farmer, engineer, adventurer and hoarder, each with matching talents and one weak spot. **Honesty**: honest (never steals), fair, sly, or light-fingered, which set the stealing and sabotage thresholds and how long grudges last.
+
+Everything is saved in the `bots` folder: `roster.json` (the page's list, including API keys, so keep that folder private) and one ordinary config file per bot, `bots/<name>.json`. Every bot automatically lists the others in `otherBots`. You can still start any bot by hand with `node src/index.js bots/<name>.json`. The first time, the page copies your existing `config.json` in as the first bot.
 
 ## Connecting to your world
 
@@ -190,7 +211,7 @@ Nobody owns the bot. Whether it does what you ask depends on its personality, it
 
 The terminal window counts as an operator too.
 
-**Multiple AI bots.** Put the other bots' names in `otherBots` (e.g. `["mike", "slip", "boot", "em"]`). The bot then knows they're AI characters and answers them at most once every `botChatCooldownSeconds`, so two bots can't chat back and forth forever and burn through your LLM budget.
+**Multiple AI bots.** The setup page runs as many as you like from one PC, each in its own process (the AI is usually the limit: several bots on one local Ollama model take turns thinking, so a cloud provider or a smaller model helps). By hand, give each bot its own config file and put the other bots' names in `otherBots` (e.g. `["mike", "slip", "boot", "em"]`). The bot then knows they're AI characters and answers them at most once every `botChatCooldownSeconds`, so two bots can't chat back and forth forever and burn through your LLM budget.
 
 ## What the body can do
 
@@ -502,6 +523,8 @@ src/body/explore.js   the explore action: direction choice, scanning for finds, 
 src/brain/social.js   feelings, ownership, chest ledger and theft suspects, stealing/sabotage rules
 src/brain/socialSenses.js  watching players: chest opens, sightings, whose base, griefing, ideas
 src/body/sneaky.js    whose/steal/sabotage/check_chests/adjust_feelings, witnesses, chest audits
+src/manager/          the setup page: server.js (local web API), page.html, roster.js (bots and their config files),
+                      processes.js (starting and talking to bots), randomize.js (characters), mind.js (memory view)
 src/body/railway.js   railway routes, track, power, stations
 src/brain/railOffers.js  weekly railway offers to players
 src/skills/registry.js  the skill library: tiers, XP, prerequisites, params (data)
@@ -520,7 +543,7 @@ Issues and pull requests are welcome. Run `npm test` (fast unit tests) and `npm 
 
 ## Ideas for later
 
-- Package as a single download (Node's single-executable apps, or Electron for a settings window).
+- Package as a single download (Node's single-executable apps).
 - A "skill library": save successful multi-step plans and reuse them.
 - Danger reflexes (lava, falls, getting stuck), crossbows and tridents.
 - Schematic-based building, doors and beds in huts, villager trading, bastions, melon/pumpkin and auto-farms.
