@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MC AI Companion</title>
+<meta name="description" content="A Minecraft bot that plays alongside you: an AI decides and talks, fast code walks, mines, fights and builds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Silkscreen&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sky: #cfe3ea;
+    --grass: #5c8a3a;
+    --dirt: #6e4b31;
+    --stone: #74767a;
+    --deepslate: #34363d;
+    --bedrock: #1d1e21;
+    --paper: #f3efe6;
+    --ink: #1f2a1c;
+    --redstone: #c4302b;
+    --redstone-glow: #ff5a4a;
+    --measure: 68ch;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: var(--ink);
+    background: var(--bedrock);
+  }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", system-ui, sans-serif; line-height: 1.05; margin: 0; }
+  h1 { font-size: clamp(2.8rem, 8vw, 6rem); font-weight: 800; letter-spacing: -0.03em; }
+  h2 { font-size: clamp(1.9rem, 4.5vw, 3rem); font-weight: 800; letter-spacing: -0.02em; margin-bottom: 0.6em; }
+  h3 { font-size: 1.25rem; font-weight: 500; margin: 1.6em 0 0.3em; }
+  p { margin: 0 0 1em; }
+  a { color: inherit; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  a:focus-visible, .btn:focus-visible { outline: 3px solid var(--redstone-glow); outline-offset: 3px; }
+  code, pre { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 0.95em; }
+
+  /* Each section is a layer of the world. The depth marker hangs in the left margin. */
+  .layer { position: relative; padding: clamp(3.5rem, 8vw, 6.5rem) 1rem; }
+  .layer > .inner { max-width: calc(var(--measure) + 9rem); margin: 0 auto; padding-left: 9rem; position: relative; }
+  .depth {
+    position: absolute; left: 0; top: 0.35rem; width: 7.5rem;
+    font-family: "Silkscreen", monospace; font-size: 0.95rem; line-height: 1.3;
+    border-top: 3px solid currentColor; padding-top: 0.4rem; opacity: 0.85;
+  }
+  .depth small { display: block; font-size: 0.72rem; opacity: 0.8; }
+  .inner > * { max-width: var(--measure); }
+
+  .sky { background: var(--sky); color: var(--ink); padding-top: clamp(4rem, 10vw, 8rem); }
+  .surface { background: var(--grass); color: #f6f8ee; border-top: 14px solid #4a7230; }
+  .dirt { background: var(--dirt); color: var(--paper); }
+  .stone { background: var(--stone); color: #fbfbf8; }
+  .deepslate { background: var(--deepslate); color: #e9e7f0; }
+  .bedrock { background: var(--bedrock); color: #d9d6cc; }
+
+  /* Block-edge texture where layers meet: a stepped line instead of a straight cut. */
+  .dirt::before, .stone::before, .deepslate::before, .bedrock::before {
+    content: ""; position: absolute; left: 0; right: 0; top: -12px; height: 12px;
+    background: inherit;
+    clip-path: polygon(0 100%, 0 40%, 6% 40%, 6% 0, 13% 0, 13% 60%, 22% 60%, 22% 20%, 31% 20%, 31% 70%, 40% 70%, 40% 10%, 52% 10%, 52% 50%, 61% 50%, 61% 0, 70% 0, 70% 65%, 79% 65%, 79% 25%, 90% 25%, 90% 55%, 100% 55%, 100% 100%);
+  }
+
+  .lede { font-size: clamp(1.2rem, 2.2vw, 1.45rem); max-width: 40ch; margin-top: 1rem; }
+  .status { font-size: 1rem; max-width: 56ch; border-left: 4px solid var(--redstone); padding: 0.2rem 0 0.2rem 0.9rem; margin-top: 1.8rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 2rem; }
+  .btn {
+    display: inline-block; text-decoration: none; font-weight: 700;
+    padding: 0.75rem 1.25rem; border: 3px solid var(--ink); background: var(--ink); color: var(--paper);
+    box-shadow: 4px 4px 0 var(--redstone);
+  }
+  .btn.secondary { background: transparent; color: var(--ink); box-shadow: none; }
+  .btn:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--redstone); }
+  .btn.secondary:hover { box-shadow: none; text-decoration: underline; }
+
+  ul.plain { padding-left: 1.2em; margin: 0 0 1em; }
+  ul.plain li { margin-bottom: 0.45em; }
+  dl.pairs { display: grid; grid-template-columns: max-content 1fr; gap: 0.5rem 1.2rem; margin: 1.2rem 0; }
+  dl.pairs dt { font-weight: 700; }
+  dl.pairs dd { margin: 0; }
+
+  /* The railway: a powered line laid along the surface. */
+  .rail {
+    height: 26px; margin: 2.2rem 0 0.4rem;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 18px, #6b4a2b 18px 30px) 0 9px / 100% 12px no-repeat,
+      linear-gradient(#9aa0a6, #9aa0a6) 0 7px / 100% 3px no-repeat,
+      linear-gradient(#9aa0a6, #9aa0a6) 0 18px / 100% 3px no-repeat;
+    position: relative;
+  }
+  .rail span { position: absolute; top: 6px; width: 30px; height: 16px; background: linear-gradient(#e2b33c, #e2b33c) 0 1px / 100% 2px no-repeat, linear-gradient(#e2b33c, #e2b33c) 0 12px / 100% 2px no-repeat; }
+  .rail span::after { content: ""; position: absolute; left: 11px; top: -12px; width: 6px; height: 10px; background: var(--redstone-glow); box-shadow: 0 0 8px var(--redstone-glow); }
+
+  pre {
+    background: #0f1012; color: #e8e6df; padding: 1rem 1.2rem; overflow-x: auto;
+    border-left: 4px solid var(--redstone); margin: 0 0 1.4rem;
+  }
+  ol.steps { padding-left: 1.4em; }
+  ol.steps li { margin-bottom: 1rem; }
+  ol.steps li::marker { font-family: "Silkscreen", monospace; color: var(--redstone-glow); }
+
+  .diagram { border: 2px solid #8a8c98; padding: 1rem 1.2rem; margin: 1.2rem 0 1.6rem; }
+  .diagram .row { display: grid; grid-template-columns: 7rem 1fr; gap: 1rem; padding: 0.6rem 0; }
+  .diagram .row + .row { border-top: 1px dashed #8a8c98; }
+  .diagram .who { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 1.15rem; }
+
+  footer { font-size: 0.95rem; opacity: 0.85; margin-top: 2.5rem; }
+
+  @media (max-width: 760px) {
+    .layer > .inner { padding-left: 0; }
+    .depth { position: static; width: auto; display: inline-block; margin-bottom: 1.2rem; padding-right: 0.5rem; }
+    .depth small { display: inline; margin-left: 0.5em; }
+    dl.pairs { grid-template-columns: 1fr; }
+    dl.pairs dd { margin-bottom: 0.6rem; }
+    .diagram .row { grid-template-columns: 1fr; gap: 0.2rem; }
+  }
+</style>
+</head>
+<body>
+
+<header class="layer sky">
+  <div class="inner">
+    <div class="depth" aria-hidden="true">y 120<small>open sky</small></div>
+    <h1>MC AI Companion</h1>
+    <p class="lede">A Minecraft bot that plays alongside you. An AI decides what to do and says what it thinks; fast code does the walking, mining, fighting and building.</p>
+    <div class="actions">
+      <a class="btn" href="https://github.com/Advancemintz/mc-ai-companion">Get it on GitHub</a>
+      <a class="btn secondary" href="https://github.com/Advancemintz/mc-ai-companion/blob/main/CHANGELOG.md">Read the changelog</a>
+    </div>
+    <p class="status">Early version (0.6). The core bot has run on a real server; the newer features pass 66 automated tests in simulated worlds but are still being tried out in real games.</p>
+  </div>
+</header>
+
+<section class="layer surface" aria-labelledby="life">
+  <div class="inner">
+    <div class="depth" aria-hidden="true">y 64<small>the surface</small></div>
+    <h2 id="life">It lives in your world</h2>
+    <p>Nobody owns it. It has a personality you write, its own needs and goals, and a memory that survives restarts. Ask it for help and it decides like a person would: gladly, grudgingly, for a price, or not at all.</p>
+    <ul class="plain">
+      <li><strong>Needs.</strong> Night is coming and there's no shelter. Food is running low. A stone pickaxe would be better than wood. It notices and acts.</li>
+      <li><strong>Goals and memory.</strong> It sets its own long-term goals, remembers places and what it thinks of each player, and keeps a short journal.</li>
+      <li><strong>Senses.</strong> It reacts to sunsets, storms, creepers, diamonds, and friends arriving or handing it things.</li>
+      <li><strong>Never just standing there.</strong> It plans its next step while still working, gives up on stuck tasks, and falls back to sensible chores if the AI goes quiet.</li>
+      <li><strong>Operators stay in charge.</strong> Server OPs can stop, pause, redirect or completely wipe it with <code>!</code> commands it can't refuse.</li>
+    </ul>
+
+    <h3>It connects the neighborhood</h3>
+    <p>About once a week it may offer a player a powered minecart line from its base to theirs, if it has the iron, gold and redstone or can easily mine them. Say yes and it surveys the route, tunnels through hills, bridges water, powers the track and builds a station at each end.</p>
+    <div class="rail" role="img" aria-label="A stretch of powered railway"><span style="left:12%"></span><span style="left:47%"></span><span style="left:82%"></span></div>
+  </div>
+</section>
+
+<section class="layer dirt" aria-labelledby="build">
+  <div class="inner">
+    <div class="depth" aria-hidden="true">y 63<small>just below the grass</small></div>
+    <h2 id="build">It builds a proper home</h2>
+    <p>Ask for a base and it finds the flattest dry spot nearby, clears the trees, levels the ground and builds a log-framed house with a floor, windows, a door, a roof, torches and furniture. Or it digs one: a covered stairwell with double doors down to a lit room, with every cave, water pocket and lava leak sealed off.</p>
+    <dl class="pairs">
+      <dt>Tidy</dt><dd>Chests, tables, furnaces and beds go against walls, out of walkways and away from doors. A second chest joins the first into a double chest.</dd>
+      <dt>Careful</dt><dd>It never digs inside a base or breaks anything a player placed, and it picks up the crafting tables it leaves out in the wild.</dd>
+      <dt>Patient</dt><dd>Big builds are projects. When it runs out of blocks it says exactly what it needs, goes to get them and carries on where it stopped.</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="layer stone" aria-labelledby="mine">
+  <div class="inner">
+    <div class="depth" aria-hidden="true">y 16<small>iron country</small></div>
+    <h2 id="mine">It digs a real mine</h2>
+    <p>No more holes in your floor. It picks an entrance away from every base, digs one clean covered staircase down to the right depth for what it wants, then branch-mines there and clears out every vein it uncovers. Next trip, it goes back to the same mine.</p>
+    <dl class="pairs">
+      <dt>Coal, copper</dt><dd>y 48</dd>
+      <dt>Iron</dt><dd>y 16</dd>
+      <dt>Lapis</dt><dd>y 0</dd>
+      <dt>Gold</dt><dd>y −16</dd>
+      <dt>Diamond, redstone</dt><dd>y −58</dd>
+    </dl>
+  </div>
+</section>
+
+<section class="layer deepslate" aria-labelledby="how">
+  <div class="inner">
+    <div class="depth" aria-hidden="true">y −58<small>diamond level</small></div>
+    <h2 id="how">How it works</h2>
+    <p>The AI is slow and thoughtful, the game is fast. So they're split: the AI is only asked when something happens, and plain code keeps the body moving in between.</p>
+    <div class="diagram">
+      <div class="row"><div class="who">Brain</div><div>Any language model. It reads what the bot sees, needs and remembers, then replies with something to say and a short plan of actions.</div></div>
+      <div class="row"><div class="who">Body</div><div>Pathfinding, mining, combat, crafting, building and railway laying, running every game tick. Reflexes eat, fight back and flee without waiting for the AI.</div></div>
+    </div>
+    <p>Works with <strong>Ollama</strong> (free, runs on your PC), <strong>OpenAI</strong>, <strong>Anthropic Claude</strong>, <strong>Google Gemini</strong>, and anything that speaks the OpenAI format, like LM Studio, OpenRouter or Groq. Switching is one line in the config.</p>
+  </div>
+</section>
+
+<section class="layer bedrock" aria-labelledby="install">
+  <div class="inner">
+    <div class="depth" aria-hidden="true">y −64<small>bedrock</small></div>
+    <h2 id="install">Set it up</h2>
+    <ol class="steps">
+      <li>Install <a href="https://nodejs.org">Node.js</a> 20 or newer, and either <a href="https://ollama.com">Ollama</a> or an API key for a cloud model.</li>
+      <li>Download the project and install its packages:
+        <pre><code>git clone https://github.com/Advancemintz/mc-ai-companion
+cd mc-ai-companion
+npm install</code></pre></li>
+      <li>Edit <code>config.json</code>: pick your AI provider and write the bot's personality.</li>
+      <li>Open a Minecraft Java 1.21.x world to LAN (or start a server) and put the port in the config.</li>
+      <li>Start the bot with <code>npm start</code> (or double-click <code>start.bat</code> on Windows), then say hi in chat.</li>
+    </ol>
+    <p>The <a href="https://github.com/Advancemintz/mc-ai-companion#readme">README</a> covers connecting, every setting, every command and troubleshooting.</p>
+    <footer>MIT licensed. Built on <a href="https://github.com/PrismarineJS/mineflayer">Mineflayer</a>. Not affiliated with Mojang or Microsoft.</footer>
+  </div>
+</section>
+
+</body>
+</html>

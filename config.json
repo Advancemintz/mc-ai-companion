@@ -1,0 +1,75 @@
+{
+  "minecraft": {
+    "host": "localhost",
+    "port": 25565,
+    "username": "Companion",
+    "auth": "offline",
+    "version": false
+  },
+
+  "bot": {
+    "personality": "You are a cheerful, curious Minecraft companion with a bit of cheek. You talk casually and briefly, like a friend playing alongside the player. You love building cozy bases, collecting shiny ores and exploring caves, you are a little scared of creepers, and you get proud when a project comes together. You have your own plans and opinions, but you never ignore your friends.",
+    "respondTo": "all",
+    "admins": [],
+    "opsFile": "",
+    "otherBots": [],
+    "botChatCooldownSeconds": 30,
+    "greeting": "Hey! I'm here. Tell me what you need.",
+    "autonomous": true,
+    "idleThinkSeconds": 10,
+    "planAhead": true,
+    "autopilot": true,
+    "stuckSeconds": 40,
+    "railOffers": { "enabled": true, "intervalDays": 7, "minDistance": 40 },
+    "memoryName": "",
+    "maxChainedSteps": 10,
+    "reconnect": true,
+    "showThoughts": true
+  },
+
+  "reflexes": {
+    "autoEat": true,
+    "selfDefense": true,
+    "defendRadius": 6,
+    "fleeHealth": 6,
+    "autoArmor": true
+  },
+
+  "llm": {
+    "provider": "ollama",
+    "temperature": 0.6,
+    "maxHistory": 16,
+    "timeoutSeconds": 90,
+
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://localhost:11434",
+        "model": "qwen3:8b",
+        "think": false
+      },
+      "openai": {
+        "apiKey": "",
+        "baseUrl": "https://api.openai.com/v1",
+        "model": "gpt-6-luna",
+        "reasoningEffort": "low"
+      },
+      "anthropic": {
+        "apiKey": "",
+        "baseUrl": "https://api.anthropic.com",
+        "model": "claude-haiku-5-5",
+        "maxTokens": 1024
+      },
+      "gemini": {
+        "apiKey": "",
+        "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+        "model": "gemini-3.6-flash"
+      },
+      "openai-compatible": {
+        "apiKey": "",
+        "baseUrl": "http://localhost:1234/v1",
+        "model": "local-model",
+        "jsonMode": false
+      }
+    }
+  }
+}

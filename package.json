@@ -1,0 +1,23 @@
+{
+  "name": "mc-ai-companion",
+  "version": "0.6.0",
+  "description": "A Minecraft companion bot: an LLM brain for talking and decisions, plus a fast code-driven body for movement, combat, mining and building.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "mineflayer": "^4.33.0",
+    "mineflayer-armor-manager": "^2.0.1",
+    "mineflayer-collectblock": "^1.4.1",
+    "mineflayer-pathfinder": "^2.4.5",
+    "mineflayer-pvp": "^1.3.2",
+    "mineflayer-tool": "^1.2.0",
+    "vec3": "^0.1.10"
+  }
+}
