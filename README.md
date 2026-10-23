@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.7.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.8.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, fights, crafts and smelts · builds real bases (surface or underground) · digs proper mines · lays powered minecart railways · has its own goals, needs, memory and personality · server operators stay in control.
+**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, fights, crafts and smelts · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (85 automated tests: 56 unit + 29 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (106 automated tests: 59 unit + 47 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -48,13 +48,14 @@ Every bot starts as a beginner and improves by doing, like a real player. Each s
 
 | Skill | Tiers |
 |---|---|
-| **Building** | 1 Dirt-hut novice: small huts only, misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases, forgets some windows and torches · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail · 4 Architect (1200 XP, needs mining 3): two-storey houses with a ladder and an upstairs bedroom |
+| **Building** | 1 Dirt-hut novice: small huts only (flat-roofed box or peaked), misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases in four designs, forgets some windows and torches; can add a storage room · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail; + bunker · 4 Architect (1200 XP, needs mining 3): two-storey houses; + second storey and enchanting room upgrades |
 | **Mining** | 1 Surface scraper: only stone and ores it can see · 2 Tunneler (60): its own `mine` for coal, copper and iron, with short branches · 3 Prospector (250): every ore, full branch mines and veins · 4 Deep miner (800): tighter, longer branches and bigger veins |
 | **Combat** | 1 Panicky: slow to react, sometimes just runs, flees early · 2 Scrapper (40) · 3 Fighter (200): uses a shield and backs off from creepers · 4 Veteran (700): calm, fights on at lower health |
 | **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
-| **The Nether** | placeholder (unlocks at combat 3 + mining 3); Nether actions are a future update |
+| **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals` · 4 Agronomist (600): 11x11 farms and bone meal |
+| **The Nether** | unlocks at combat 3 + mining 3 · 1 Portal builder: `build_portal`, short peeks through · 2 Day tripper (80): quartz, Nether gold, glowstone within 32 blocks · 3 Fortress raider (300): nether wart and blaze rods within 96 · 4 Piglin trader (900): bartering gold with piglins |
 
-- **XP comes from results:** a finished base, ores mined (diamonds count most), fights won, track laid. Failed attempts give a little too.
+- **XP comes from results:** a finished base or upgrade, ores mined (diamonds count most), fights won, crops harvested, animals bred, Nether trips survived, track laid. Failed attempts give a little too.
 - **Some tiers need other skills first.** For example, Homesteader needs mining tier 2.
 - **Too-advanced requests fail politely:** "I haven't learned that yet… to improve: build huts and walls". The bot then practises the easier version.
 - **Lessons:** after a failure the bot can save a one-line lesson with `note_lesson`, and it reads its lessons before trying again.
@@ -193,7 +194,10 @@ The terminal window counts as an operator too.
 | `craft` | finds or places a crafting table. Says exactly which ingredients are missing. |
 | `smelt` | uses a nearby or carried furnace and picks fuel automatically |
 | `build` | hut (walls, roof, doorway; `size` 2-7), wall, tower, platform, floor. Picks a flat, open, dry spot within 16 blocks on its own, clears leaves/plants, levels small bumps, fills dips, and mixes materials if one isn't enough. The first hut is saved as home. |
-| `build_base` | a real base, as a resumable project (see below) |
+| `build_base` | a real base in one of several designs, as a resumable project (see below) |
+| `upgrade_base` | improve the base you have: storage room, bunker, second storey, enchanting room |
+| `farm`, `breed_animals` | a crop farm near home that it tills, plants, harvests and replants; breeding animals (see below) |
+| `build_portal`, `nether_trip` | build and light a Nether portal; a careful round trip to gather one thing (see below) |
 | `mine` | a proper mine: covered entrance away from bases, stairs to the right depth for the ore, branch mining (see below) |
 | `plan_railway`, `build_railway`, `ride_railway` | powered minecart lines between bases and places (see below) |
 | `protect_area`, `unprotect_area` | mark a place (a friend's house, a farm) the bot must never dig in |
@@ -213,6 +217,48 @@ The terminal window counts as an operator too.
 - **Underground** (`depth` 6-24, default 10). It digs a two-wide staircase with three blocks of headroom down to a carved room. The entrance is covered, with walls, a roof and a double door, and torches light the stairs and room. Every face of the dug space is checked: holes into caves are filled, and water or lava that pours in gets plugged (and dug out again once it's safe). It needs a pickaxe, and it produces plenty of cobblestone.
 - `plan_only: true` picks the spot and lists the materials without building anything.
 - When it's finished, the base becomes `home` (any older home is kept as `old_home`), and the entrance is saved too.
+
+**Designs.** Each base picks a design at random from the ones the bot knows (or the one you ask for with `variant`), so not every base looks the same:
+
+| Style | Designs |
+|---|---|
+| surface | **cottage**: square, log-framed, flat roof · **longhouse**: long and narrow with a peaked gable roof, chests along one wall |
+| underground | **cellar**: square room · **hall**: a long hall with stone pillars |
+| `build` huts | **box** (flat roof) · **peaked** (sloped roof) |
+
+**Upgrades instead of starting over.** A better builder doesn't abandon its first house: `upgrade_base` adds to the base it already has. Each upgrade is just more cells in the same blueprint, so it's resumable, and the protected zone grows to cover it.
+
+| Upgrade | Tier | What it adds |
+|---|---|---|
+| `storage_room` | 2 | a side room with up to three chests along the far wall, joined into a double chest (carved out next to the room for underground bases) |
+| `bunker` | 3 | surface only: a safe room dug under the house, reached by a ladder shaft from the floor, with a chest |
+| `second_storey` | 4 | surface only: rebuilds the roof as an upper floor with a log band, a ladder and an upstairs bedroom |
+| `enchanting_room` | 4 | a side room with an enchanting table ringed by all 15 bookshelves, one gap to walk in |
+
+The bot's memory lists each base with its design and upgrades, and its needs suggest the upgrades it knows but hasn't built yet. The upgrade code refuses if a new room would cut into someone else's build.
+
+### Farming
+
+`farm` keeps one crop farm near home:
+
+- **The first call picks the plot.** At tier 1 it has to be next to water the bot finds (a 5x5 patch around a water block). From tier 2, a water bucket lets it dig a hole in the middle of a flat spot and make its own water source (9x9; 11x11 at tier 4).
+- **Each call is one round:** it harvests ripe crops and replants them straight away, tills new ground and plants seeds it carries, using bone meal on young crops at tier 4. From tier 2 it fences the plot in (leaving a gap) if it has fences.
+- **It needs a hoe** (it crafts a wooden one if it can) **and seeds**; with no seeds it pulls up grass for wheat seeds. Tier 2 adds carrots, potatoes and beetroot.
+- The farm is saved in memory and protected. The bot's needs and the autopilot bring it back once the crops have had about 25 minutes to grow.
+
+`breed_animals` (tier 3) feeds two adults of a kind with the right food (wheat for cows and sheep, carrots/potatoes/beetroot for pigs, seeds for chickens, carrots for rabbits).
+
+### The Nether
+
+The Nether is a late skill: it unlocks only at combat 3 and mining 3. If your personality prompt says the Nether is only a story, you can keep it that way with `!skill nether lock`.
+
+- **`build_portal`** finds a flat, open spot near home (outside any base) and builds a 4x5 frame: 10 obsidian, plus obsidian or cobblestone for the corners. It crafts flint and steel if it has iron and flint, lights the portal, and saves it as `nether_portal`.
+- **`nether_trip`** (`get`: netherrack, quartz, gold, glowstone, nether_wart, blaze_rod, barter, or look) refuses unless the bot is healthy and has food. It walks into the portal, remembers the Nether side, gathers within the range and time its tier allows, and comes back through.
+  - It turns back early if it gets hurt or hungry.
+  - It won't mine Nether gold with piglins nearby.
+  - Bartering needs gold armour on.
+  - Blaze hunting uses the normal combat code.
+- The Nether can't be simulated well, so trips are the least tested part of this release. Watch the first few.
 
 ### Mining
 
@@ -335,6 +381,9 @@ src/body/terrain.js   surface/underground detection, build-site finder
 src/body/builder.js   base blueprints, site choice, resumable build engine
 src/body/motion.js    shared walking/placing helpers
 src/body/mining.js    the mine action: entrance, stairs, branch mining
+src/body/homes.js     base designs (cottage, longhouse, cellar, hall) and upgrades
+src/body/farming.js   the farm and breed_animals actions
+src/body/nether.js    portal building and Nether trips
 src/body/placement.js where furniture goes (walls, double chests, beds)
 src/body/zones.js     protected areas and no-grief pathfinding
 src/body/idle.js      idle animation
@@ -348,6 +397,7 @@ src/body/executor.js  runs plans, cancellation, reflex interrupts + resume
 src/body/reflexes.js  eat / defend / flee / swim
 src/body/perception.js  the "what I see" summary sent to the model
 test/                 unit tests (npm test), no Minecraft needed
+sim/                  simulated-world tests (npm run test:sim)
 ```
 
 ## Contributing
@@ -359,5 +409,5 @@ Issues and pull requests are welcome. Run `npm test` (fast unit tests) and `npm 
 - Package as a single download (Node's single-executable apps, or Electron for a settings window).
 - A "skill library": save successful multi-step plans and reuse them.
 - Smarter combat (creepers, skeletons, shields, bows) and danger reflexes (lava, falls, getting stuck).
-- Schematic-based building, doors and beds in huts, farming, villager trading, Nether trips.
+- Schematic-based building, doors and beds in huts, villager trading, bastions, melon/pumpkin and auto-farms.
 - Voice chat via speech-to-text.

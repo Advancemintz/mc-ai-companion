@@ -255,6 +255,16 @@ class Memory {
     for (const p of this.unfinishedProjects()) {
       lines.push(`Unfinished project "${p.name}": ${p.size} ${p.style} base at ${p.origin.x} ${p.origin.y} ${p.origin.z}, ${p.progress ?? 0}% done${p.needs ? `, needs ${p.needs}` : ''} (call build_base with name "${p.name}" to continue)`)
     }
+    for (const [name, p] of Object.entries(this.data.projects || {})) {
+      if (p.status !== 'done' || !(p.style === 'surface' || p.style === 'underground')) continue
+      const ups = (p.upgrades || []).map(u => u.replace(/_/g, ' '))
+      lines.push(`Your base "${name}": ${(p.storeys || 1) > 1 || ups.includes('second storey') ? 'two-storey ' : ''}${p.size} ${p.style} ${p.variant || (p.style === 'surface' ? 'cottage' : 'cellar')} at ${p.origin.x} ${p.origin.y} ${p.origin.z}; ${ups.length ? `upgrades: ${ups.join(', ')}` : 'no upgrades yet'} (improve it with upgrade_base rather than building a new one)`)
+    }
+    const farm = this.getProject('farm')
+    if (farm) {
+      const ago = farm.lastRound ? Math.round((Date.now() - Date.parse(farm.lastRound)) / 60000) : null
+      lines.push(`Your farm: ${farm.radius * 2 + 1}x${farm.radius * 2 + 1} at ${farm.center.x} ${farm.center.y} ${farm.center.z}${ago !== null ? `, last tended ${ago < 60 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : ''} (farm to harvest and replant; crops ripen in roughly 20-40 minutes)`)
+    }
     const mine = this.getProject('mine')
     if (mine) {
       const levels = Object.entries(mine.levels || {}).map(([y, l]) => `y=${y} tunnel ${l.progress}`).join(', ')

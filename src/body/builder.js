@@ -80,11 +80,16 @@ function acceptable (b, role) {
   return true
 }
 
+// Plain building blocks the bot may remove from ITS OWN base when upgrading it (a doorway into a
+// new room, the hole for a ladder, an old roof). Never containers, beds or other furniture.
+const OWN_REMOVABLE = /(_planks|_log|_wood|^cobblestone|^cobbled_deepslate|^stone|stone_bricks|^bricks|glass|glass_pane|^dirt|sandstone|_slab|_stairs|^torch|wall_torch)$/
+const ownRemovable = (b) => !!b && OWN_REMOVABLE.test(b.name) && !/chest|barrel|furnace|table|bed|anvil|bookshelf|shulker/.test(b.name)
+
 // Natural blocks in the way of a structural cell (dirt where the floor goes) get dug out first.
-function needsDigging (b, role) {
+function needsDigging (b, role, allowOwn = false) {
   if (isAirLike(b) || T.isLiquid(b)) return false
   if ((EMPTY.has(role) || OPTIONAL.has(role)) && acceptable(b, role)) return false // e.g. a torch we placed
-  if (EMPTY.has(role) || OPTIONAL.has(role)) return NATURAL.test(b.name) || (b.boundingBox === 'empty' && b.diggable)
+  if (EMPTY.has(role) || OPTIONAL.has(role)) return NATURAL.test(b.name) || (b.boundingBox === 'empty' && b.diggable) || (allowOwn && ownRemovable(b))
   if (STRUCT.has(role)) return !acceptable(b, role) && (NATURAL.test(b.name) || b.boundingBox === 'empty')
   return false
 }
@@ -424,7 +429,7 @@ async function sealAround (ctx, pos, openKeys, stats) {
   }
 }
 
-async function digCell (ctx, pos, openKeys, stats) {
+async function digCell (ctx, pos, openKeys, stats, { allowOwn = false } = {}) {
   const { bot } = ctx
   for (let tries = 0; tries < 6; tries++) {
     ctx.check()
@@ -432,7 +437,7 @@ async function digCell (ctx, pos, openKeys, stats) {
     if (!b) throw new Error('part of the site is not loaded')
     if (isAirLike(b) || T.isLiquid(b)) return
     if (b.name === 'bedrock' || !b.diggable) return
-    if (!NATURAL.test(b.name) && b.boundingBox === 'block') { stats.warnings.add(`left a ${b.name} in place (not natural, maybe someone's)`); return }
+    if (!NATURAL.test(b.name) && b.boundingBox === 'block' && !(allowOwn && ownRemovable(b))) { stats.warnings.add(`left a ${b.name} in place (not natural, maybe someone's)`); return }
     if (b.harvestTools && !bot.inventory.items().some(i => b.harvestTools[i.type])) {
       // Can't harvest it, but digging still removes it; only refuse things that need a pickaxe badly.
       if (/obsidian/.test(b.name)) { stats.warnings.add('hit obsidian (needs a diamond pickaxe)'); return }
@@ -496,7 +501,8 @@ async function placeCell (ctx, cell, stats) {
 
 // Runs (or resumes) a blueprint. Returns stats; never throws for missing materials.
 // detailSkip: chance (0-1) that a less skilled builder forgets a window or torch.
-async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0 } = {}) {
+// allowOwn: the blueprint is the bot's own base, so its own plain blocks may be removed (upgrades).
+async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0, allowOwn = false } = {}) {
   const { bot } = ctx
   const stats = { dug: 0, placed: 0, sealed: 0, missing: {}, warnings: new Set(), flooded: new Set() }
   const cells = plan.cells
@@ -513,14 +519,14 @@ async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0 } 
         const p = new Vec3(x, y, z)
         if (!LIQUID_DIRS.some(d => T.isLiquid(bot.blockAt(p.plus(d))))) stats.flooded.delete(k)
       }
-      const toDig = cells.filter(c => !stats.flooded.has(c.pos.toString()) && needsDigging(bot.blockAt(c.pos), c.role))
+      const toDig = cells.filter(c => !stats.flooded.has(c.pos.toString()) && needsDigging(bot.blockAt(c.pos), c.role, allowOwn))
       if (!toDig.length) break
       toDig.sort((a, b) => (plan.digOrder ? plan.digOrder(a, b) : 0) ||
         (b.pos.y - a.pos.y) || (a.pos.distanceTo(bot.entity.position) - b.pos.distanceTo(bot.entity.position)))
       let i = 0
       for (const c of toDig) {
         onStatus(`digging ${++i}/${toDig.length}`)
-        await digCell(ctx, c.pos, openKeys, stats)
+        await digCell(ctx, c.pos, openKeys, stats, { allowOwn })
       }
     }
 

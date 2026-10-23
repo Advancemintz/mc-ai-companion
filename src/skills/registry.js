@@ -26,32 +26,32 @@ const SKILLS = {
       {
         name: 'Dirt-hut novice',
         xp: 0,
-        can: 'quick huts with `build` (small, a bit sloppy: some blocks get missed)',
+        can: 'quick huts with `build` (small, a bit sloppy: some blocks get missed); a flat-roofed box or a peaked hut, picked at random',
         next: 'build huts and walls to get the hang of it',
-        params: { bases: [], baseSizes: [], storeys: 1, missChance: 0.12, hutMaxSize: 2, detailSkip: 1 }
+        params: { bases: [], baseSizes: [], storeys: 1, missChance: 0.12, hutMaxSize: 2, detailSkip: 1, hutVariants: ['box', 'peaked'], variants: [], upgrades: [] }
       },
       {
         name: 'Cabin builder',
         xp: 100,
-        can: 'small proper bases with build_base (surface or underground); details like windows and torches are hit-and-miss',
-        next: 'finish a few small bases',
-        params: { bases: ['surface', 'underground'], baseSizes: ['small'], storeys: 1, missChance: 0, hutMaxSize: 4, detailSkip: 0.4 }
+        can: 'small proper bases with build_base (surface: a cottage or a longhouse; underground: a cellar or a pillared hall, picked at random); details like windows and torches are hit-and-miss. You can add a storage room to a finished base with upgrade_base',
+        next: 'finish a few small bases, then upgrade them',
+        params: { bases: ['surface', 'underground'], baseSizes: ['small'], storeys: 1, missChance: 0, hutMaxSize: 4, detailSkip: 0.4, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall'], upgrades: ['storage_room'] }
       },
       {
         name: 'Homesteader',
         xp: 400,
         requires: { mining: 2 },
-        can: 'small, medium and large bases with every detail',
-        next: 'finish medium or large bases',
-        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 1, missChance: 0, hutMaxSize: 7, detailSkip: 0 }
+        can: 'small, medium and large bases with every detail; upgrade_base can add a storage room or (surface bases) a hidden bunker under the house',
+        next: 'finish medium or large bases and upgrade them',
+        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 1, missChance: 0, hutMaxSize: 7, detailSkip: 0, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall'], upgrades: ['storage_room', 'bunker'] }
       },
       {
         name: 'Architect',
         xp: 1200,
         requires: { mining: 3 },
-        can: 'everything, plus two-storey houses (storeys: 2) with a ladder and an upstairs bedroom',
-        next: 'keep building; future tiers will add styles and decorations',
-        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 2, missChance: 0, hutMaxSize: 7, detailSkip: 0 }
+        can: 'everything, plus two-storey houses (storeys: 2). upgrade_base can also add a second storey to an existing house and an enchanting room with bookshelves',
+        next: 'keep building and upgrading; future tiers will add more styles and decorations',
+        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 2, missChance: 0, hutMaxSize: 7, detailSkip: 0, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall'], upgrades: ['storage_room', 'bunker', 'second_storey', 'enchanting_room'] }
       }
     ]
   },
@@ -155,17 +155,73 @@ const SKILLS = {
     ]
   },
 
+  farming: {
+    label: 'Farming',
+    about: 'crops and animals',
+    tiers: [
+      {
+        name: 'Seed planter',
+        xp: 0,
+        can: 'a small wheat patch (5x5) next to water you find, with `farm` (needs a hoe; you pull up grass for seeds)',
+        next: 'harvest and replant your wheat a few times',
+        params: { plotRadius: 2, crops: ['wheat'], makeWater: false, fence: false, breed: false, boneMeal: false }
+      },
+      {
+        name: 'Gardener',
+        xp: 60,
+        can: 'bigger farms (9x9) anywhere flat: a water bucket lets you make your own water. Grows wheat, carrots, potatoes and beetroot, and fences the farm in',
+        next: 'keep harvesting; carry a water bucket and fences',
+        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: false, boneMeal: false }
+      },
+      {
+        name: 'Rancher',
+        xp: 220,
+        can: 'everything so far, plus breeding animals with breed_animals (cows, sheep, pigs, chickens, rabbits)',
+        next: 'breed animals and keep the farm going',
+        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: false }
+      },
+      {
+        name: 'Agronomist',
+        xp: 600,
+        can: 'big farms (11x11) and bone meal to make crops grow at once',
+        next: 'future tiers will add melons, pumpkins, sugar cane and auto-farms',
+        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: true }
+      }
+    ]
+  },
+
   nether: {
     label: 'The Nether',
-    about: 'surviving and gathering in the Nether',
+    about: 'portals, and surviving and gathering in the Nether',
     unlock: { combat: 3, mining: 3 },
     tiers: [
       {
-        name: 'Rumours only',
+        name: 'Portal builder',
         xp: 0,
-        can: 'nothing yet: the Nether is just a scary story (no Nether actions exist yet)',
-        next: 'future update: portal building, quick trips for quartz and gold, fortresses, bastions',
-        params: { enabled: false }
+        can: 'build and light a Nether portal near home with build_portal (needs 10 obsidian and flint and steel), and peek through with nether_trip (stays by the portal)',
+        next: 'build a portal and make a few careful trips',
+        params: { trip: true, radius: 12, minutes: 2, targets: ['netherrack'], fight: [], barter: false }
+      },
+      {
+        name: 'Day tripper',
+        xp: 80,
+        can: 'short Nether trips for quartz, Nether gold, glowstone and netherrack, up to 32 blocks from the portal',
+        next: 'bring back quartz and glowstone',
+        params: { trip: true, radius: 32, minutes: 5, targets: ['netherrack', 'quartz', 'gold', 'glowstone'], fight: [], barter: false }
+      },
+      {
+        name: 'Fortress raider',
+        xp: 300,
+        can: 'longer trips (up to 96 blocks) that reach fortresses: nether wart and blaze rods (it fights blazes)',
+        next: 'collect blaze rods and nether wart',
+        params: { trip: true, radius: 96, minutes: 10, targets: ['netherrack', 'quartz', 'gold', 'glowstone', 'nether_wart', 'blaze_rod'], fight: ['blaze'], barter: false }
+      },
+      {
+        name: 'Piglin trader',
+        xp: 900,
+        can: 'everything, plus bartering gold ingots with piglins (wear something gold!) for ender pearls and other loot',
+        next: 'future tiers will add bastions and netherite',
+        params: { trip: true, radius: 96, minutes: 12, targets: ['netherrack', 'quartz', 'gold', 'glowstone', 'nether_wart', 'blaze_rod', 'barter'], fight: ['blaze'], barter: true }
       }
     ]
   }
@@ -176,11 +232,16 @@ const SKILLS = {
 const ACTION_SKILLS = {
   build: { skill: 'building', minTier: 1 },
   build_base: { skill: 'building', minTier: 2 },
+  upgrade_base: { skill: 'building', minTier: 2 },
   collect_block: { skill: 'mining', minTier: 1, onlyFor: /_ore$|^(stone|deepslate|cobblestone|tuff|andesite|diorite|granite|iron|coal|gold|copper|diamond|redstone|lapis|emerald)/ },
   mine: { skill: 'mining', minTier: 2 },
   attack: { skill: 'combat', minTier: 1 },
   guard: { skill: 'combat', minTier: 1 },
-  build_railway: { skill: 'railways', minTier: 1 }
+  build_railway: { skill: 'railways', minTier: 1 },
+  farm: { skill: 'farming', minTier: 1 },
+  breed_animals: { skill: 'farming', minTier: 3 },
+  build_portal: { skill: 'nether', minTier: 1 },
+  nether_trip: { skill: 'nether', minTier: 1 }
 }
 
 module.exports = { SKILLS, ACTION_SKILLS }

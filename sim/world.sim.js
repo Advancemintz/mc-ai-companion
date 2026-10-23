@@ -22,9 +22,11 @@ const perception = require(P + 'src/body/perception')
 
 function registry () {
   const blocks = ['air', 'stone', 'cobblestone', 'dirt', 'grass_block', 'oak_log', 'birch_log', 'stripped_oak_log', 'iron_ore',
-    'deepslate_iron_ore', 'crafting_table', 'furnace', 'chest', 'red_bed', 'oak_leaves', 'water', 'poppy', 'short_grass', 'coal_ore', 'oak_planks', 'birch_planks', 'glass', 'oak_door', 'torch', 'wall_torch', 'lava', 'bedrock', 'oak_slab', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder']
+    'deepslate_iron_ore', 'crafting_table', 'furnace', 'chest', 'red_bed', 'oak_leaves', 'water', 'poppy', 'short_grass', 'coal_ore', 'oak_planks', 'birch_planks', 'glass', 'oak_door', 'torch', 'wall_torch', 'lava', 'bedrock', 'oak_slab', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder',
+    'bookshelf', 'enchanting_table', 'farmland', 'wheat', 'carrots', 'potatoes', 'beetroots', 'oak_fence', 'obsidian', 'nether_portal', 'netherrack', 'nether_quartz_ore']
   const items = ['cobblestone', 'dirt', 'oak_log', 'birch_log', 'oak_planks', 'birch_planks', 'stick', 'crafting_table', 'wooden_pickaxe',
-    'stone_pickaxe', 'iron_ingot', 'raw_iron', 'coal', 'furnace', 'bread', 'rotten_flesh', 'iron_sword', 'wooden_axe', 'stone_sword', 'glass', 'oak_door', 'torch', 'chest', 'red_bed', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'gold_ingot', 'redstone', 'minecart', 'ladder']
+    'stone_pickaxe', 'iron_ingot', 'raw_iron', 'coal', 'furnace', 'bread', 'rotten_flesh', 'iron_sword', 'wooden_axe', 'stone_sword', 'glass', 'oak_door', 'torch', 'chest', 'red_bed', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'gold_ingot', 'redstone', 'minecart', 'ladder',
+    'bookshelf', 'enchanting_table', 'wheat_seeds', 'wheat', 'carrot', 'potato', 'beetroot_seeds', 'beetroot', 'wooden_hoe', 'water_bucket', 'bucket', 'oak_fence', 'obsidian', 'flint_and_steel', 'bone_meal', 'netherrack', 'quartz']
   const r = { blocksByName: {}, itemsByName: {}, items: {}, blocks: {}, foodsByName: {
     bread: { foodPoints: 5, saturation: 6 }, rotten_flesh: { foodPoints: 4, saturation: 0.8 } } }
   blocks.forEach((n, i) => { r.blocksByName[n] = { id: i, name: n }; r.blocks[i] = r.blocksByName[n] })
@@ -40,12 +42,12 @@ function worldBot () {
   const propsMap = new Map()
   bot._props = propsMap
   const mk = (name, p) => ({ name, type: bot.registry.blocksByName[name].id, position: p.clone(), getProperties: () => propsMap.get(key(p)) || {},
-    boundingBox: ['air', 'water', 'lava', 'poppy', 'short_grass', 'torch', 'wall_torch', 'oak_door', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder'].includes(name) ? 'empty' : 'block', diggable: name !== 'air' && name !== 'water' })
+    boundingBox: ['air', 'water', 'lava', 'poppy', 'short_grass', 'torch', 'wall_torch', 'oak_door', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder', 'wheat', 'carrots', 'potatoes', 'beetroots', 'nether_portal'].includes(name) ? 'empty' : 'block', diggable: name !== 'air' && name !== 'water' })
   bot.setBlock = (p, name) => world.set(key(p), name)
   bot.blockAt = (p) => { p = p.floored(); return mk(world.get(key(p)) || (p.y < 64 ? 'stone' : 'air'), p) }
   for (let x = -20; x <= 20; x++) for (let z = -20; z <= 20; z++) bot.setBlock(new Vec3(x, 63, z), 'grass_block')
   bot.findBlocks = ({ matching, maxDistance, count }) => {
-    const ids = new Set(matching)
+    const ids = new Set([].concat(matching))
     const out = []
     for (const [k, n] of world) {
       if (!ids.has(bot.registry.blocksByName[n].id)) continue
@@ -82,7 +84,11 @@ function worldBot () {
   bot.placeBlock = async (ref, face) => {
     const held = bot.heldItem
     const dest = ref.position.plus(face)
-    bot.setBlock(dest, held.name)
+    const CROP = { wheat_seeds: 'wheat', carrot: 'carrots', potato: 'potatoes', beetroot_seeds: 'beetroots' }
+    if (CROP[held.name]) {
+      if (world.get(key(ref.position)) !== 'farmland') throw new Error('seeds need farmland')
+      bot.setBlock(dest, CROP[held.name]); propsMap.set(key(dest), { age: 0 })
+    } else bot.setBlock(dest, held.name)
     if (held.name === 'chest') {
       // Vanilla: a chest faces the player; it joins a same-facing single chest beside it.
       const d = bot.entity.position.floored().minus(dest)
@@ -100,6 +106,37 @@ function worldBot () {
     if (held.count <= 0) { const ix = bot._items.indexOf(held); if (ix >= 0) bot._items.splice(ix, 1); bot.heldItem = null }
   }
   bot.dig = async (block) => { bot.setBlock(block.position, 'air') }
+  const use = (name) => {
+    const it = bot._items.find(i => i.name === name)
+    if (!it) return
+    it.count--
+    if (it.count <= 0) { bot._items.splice(bot._items.indexOf(it), 1); if (bot.heldItem === it) bot.heldItem = null }
+  }
+  bot._use = use
+  // Right-clicking: hoes till, flint and steel lights a portal frame, bone meal ripens crops.
+  bot.activateBlock = async (block) => {
+    const held = bot.heldItem?.name || ''
+    const p = block.position
+    if (/_hoe$/.test(held) && /^(grass_block|dirt)$/.test(block.name) && bot.blockAt(p.offset(0, 1, 0)).name === 'air') bot.setBlock(p, 'farmland')
+    else if (held === 'bone_meal' && /^(wheat|carrots|potatoes|beetroots)$/.test(block.name)) { propsMap.set(key(p), { age: 7 }); use('bone_meal') }
+    else if (held === 'flint_and_steel' && block.name === 'obsidian') {
+      for (const d of [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)]) {
+        if (world.get(key(p.plus(d))) !== 'obsidian' || world.get(key(p.plus(d).offset(0, 3, 0)))) continue
+        for (let y = 1; y <= 3; y++) { bot.setBlock(p.offset(0, y, 0), 'nether_portal'); bot.setBlock(p.plus(d).offset(0, y, 0), 'nether_portal') }
+        break
+      }
+    }
+  }
+  bot.lookAt = async (pt) => { bot._lookAt = pt }
+  bot.activateItem = () => {
+    if (bot.heldItem?.name === 'water_bucket' && bot._lookAt) {
+      const p = bot._lookAt.floored()
+      if (bot.blockAt(p).boundingBox === 'empty') { bot.setBlock(p, 'water'); use('water_bucket'); give('bucket', 1) }
+    }
+  }
+  bot.deactivateItem = () => {}
+  bot.fed = []
+  bot.activateEntity = async (e) => { bot.fed.push(e.id); if (bot.heldItem) use(bot.heldItem.name) }
   bot.collectBlock.collect = async (block) => {
     bot.setBlock(block.position, 'air')
     give(block.name === 'stone' ? 'cobblestone' : block.name === 'iron_ore' ? 'raw_iron' : block.name, 1)
@@ -165,7 +202,7 @@ test('build hut places walls, roof and leaves a doorway', async () => {
   assert.ok(r.ok, r.text)
   const expected = helpers.structureOffsets('hut', {}).length
   assert.match(r.text, new RegExp(`using ${expected} cobblestone`), r.text)
-  const [x, y, z] = r.text.match(/built hut at (-?\d+), (-?\d+), (-?\d+)/).slice(1).map(Number)
+  const [x, y, z] = r.text.match(/built an? \w+ hut at (-?\d+), (-?\d+), (-?\d+)/).slice(1).map(Number)
   const o = new Vec3(x, y, z)
   assert.strictEqual(y, 64)
   assert.strictEqual(bot.blockAt(o).name, 'air') // doorway
@@ -288,9 +325,9 @@ test('site finder avoids water, trees and steep spots and the hut becomes home',
   ex.on('actionFailed', e => { out = 'FAILED ' + e.error })
   ex.setPlan([{ name: 'build', args: { structure: 'hut' } }])
   await until(() => out, 8000)
-  assert.match(out, /built hut/, out)
+  assert.match(out, /built an? \w+ hut/, out)
   assert.match(out, /saved it as your home/)
-  const [x, y, z] = out.match(/built hut at (-?\d+), (-?\d+), (-?\d+)/).slice(1).map(Number)
+  const [x, y, z] = out.match(/built an? \w+ hut at (-?\d+), (-?\d+), (-?\d+)/).slice(1).map(Number)
   // whole footprint must be on dry ground (not over the pond, not through the tree)
   for (let ri = -2; ri <= 2; ri++) {
     for (let fi = 0; fi <= 4; fi++) {
@@ -703,7 +740,7 @@ test('novice builder: only small huts, misses blocks, earns XP; bases are refuse
   assert.match(r.text, /kept it small: size 2/)
   assert.ok(skills.state('building').xp > before)
   // ~12% miss chance on a 50-block hut: almost always at least one gap
-  assert.match(r.text, /missed \d+ spots|built hut/)
+  assert.match(r.text, /missed \d+ spots|built an? \w+ hut/)
 })
 
 test('cabin builder: small bases only, finishing one earns a big chunk of XP', async () => {
@@ -715,7 +752,7 @@ test('cabin builder: small bases only, finishing one earns a big chunk of XP', a
   assert.strictEqual(r.ok, false)
   assert.match(r.text, /a medium base is beyond me for now; I can manage: small/)
   const xp0 = skills.state('building').xp
-  r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface' })
+  r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage' })
   assert.match(r.text, /finished the small surface base/, r.text)
   assert.ok(skills.state('building').xp >= xp0 + 40)
 })
@@ -725,7 +762,7 @@ test('architect: a two-storey house with a ladder and an upper floor', async () 
   stockBase(bot, 600); bot.give('cobblestone', 200); bot.give('oak_log', 40); bot.give('ladder', 8)
   const mem = new Memory(null)
   const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
-  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', size: 'medium', storeys: 2 }, 120000)
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage', size: 'medium', storeys: 2 }, 120000)
   console.log(r.text)
   assert.match(r.text, /finished the two-storey medium surface base/, r.text)
   const p = mem.getProject('base')
@@ -762,4 +799,323 @@ test('novice miner cannot dig mines at all', async () => {
   const r = await runSkilled(bot, mem, skills, 'mine', { target: 'iron' })
   assert.strictEqual(r.ok, false)
   assert.match(r.text, /haven't learned mine yet: it needs mining tier 2 "Tunneler"/)
+})
+
+// ------------------------------------------------------------------ v0.8: home variants and upgrades
+const H = require(P + 'src/body/homes')
+
+function projAt (mem, name = 'base') {
+  const p = mem.getProject(name)
+  const o = new Vec3(p.origin.x, p.origin.y, p.origin.z)
+  const f = new Vec3(p.f.x, 0, p.f.z); const rr = B.rightOf(f)
+  return { p, o, at: (ri, up, fi) => o.plus(rr.scaled(ri)).plus(f.scaled(fi)).offset(0, up, 0) }
+}
+
+test('variants: the bot picks among the designs it knows, at random', () => {
+  const seen = new Set()
+  for (let i = 0; i < 40; i++) seen.add(H.pickVariant('surface', ['cottage', 'longhouse', 'cellar', 'hall']))
+  assert.deepStrictEqual([...seen].sort(), ['cottage', 'longhouse'])
+  assert.strictEqual(H.pickVariant('underground', ['cellar', 'hall'], () => 0.99), 'hall')
+  assert.strictEqual(H.pickVariant('surface', []), 'cottage', 'falls back to the classic design')
+})
+
+test('longhouse: a long narrow house with a peaked roof', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 400)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 2 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'longhouse' }, 120000)
+  assert.match(r.text, /finished the small surface base "base" \(longhouse\)/, r.text)
+  const { p, at } = projAt(mem)
+  assert.strictEqual(p.variant, 'longhouse')
+  const geo = H.baseGeometry(p).geo
+  assert.ok(geo.L > geo.W, 'longer than it is wide')
+  assert.strictEqual(bot.blockAt(at(0, 1, 0)).name, 'oak_door')
+  const ridge = geo.top + 1 + geo.h
+  assert.ok(T.isFirm(bot.blockAt(at(0, ridge, 3))), 'ridge of the roof in the middle')
+  assert.strictEqual(bot.blockAt(at(geo.h - 1, ridge, 3)).name, 'air', 'roof slopes down toward the sides')
+  assert.ok(T.isFirm(bot.blockAt(at(geo.h - 1, geo.top + 2, 3))), 'lower roof near the side wall')
+})
+
+test('hall: an underground hall with pillars', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bot.give('stone_pickaxe', 1); bot.give('cobblestone', 300); bot.give('oak_door', 2); bot.give('torch', 16)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'underground', variant: 'hall', size: 'medium', depth: 10 }, 120000)
+  assert.match(r.text, /finished the medium underground base "base" \(hall\)/, r.text)
+  const { p, at } = projAt(mem)
+  const geo = H.baseGeometry(p).geo
+  const lv = geo.level
+  assert.strictEqual(bot.blockAt(at(0, lv, geo.mid)).name, 'air', 'the hall is dug out')
+  assert.ok(T.isFirm(bot.blockAt(at(geo.h - 1, lv, geo.roomStart + 2))), 'a pillar left standing')
+  assert.strictEqual(bot.blockAt(at(0, 1, 0)).name, 'oak_door')
+})
+
+test('upgrades: a finished base suggests upgrades; tier gates them', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 400)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 2 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage' }, 120000)
+  assert.match(r.text, /finished/, r.text)
+  r = await runSkilled(bot, mem, skills, 'build_base', {})
+  assert.match(r.text, /already finished .* upgrade_base: storage_room\./, r.text)
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'bunker' })
+  assert.strictEqual(r.ok, false)
+  assert.match(r.text, /building tier 3/, r.text)
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'teleporter' })
+  assert.match(r.text, /don't know an upgrade called/)
+})
+
+test('storage room upgrade: a side room with chests that join into a double chest', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 500); bot.give('chest', 3)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage', size: 'small' }, 120000)
+  assert.match(r.text, /finished/, r.text)
+  const xp0 = skills.state('building').xp
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'storage' }, 120000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /added the storage room to the/, r.text)
+  const { p, at } = projAt(mem)
+  assert.deepStrictEqual(p.upgrades, ['storage_room'])
+  const geo = H.baseGeometry(p).geo
+  const chests = [-1, 0, 1].map(df => at(-geo.h - 3, 1, geo.mid + df)).filter(q => bot.blockAt(q).name === 'chest')
+  assert.ok(chests.length >= 2, `chests in the storage room (${chests.length})`)
+  assert.ok(chests.some(q => ['left', 'right'].includes(bot._props.get(`${q.x},${q.y},${q.z}`)?.type)), 'a double chest')
+  assert.strictEqual(bot.blockAt(at(-geo.h, 1, geo.mid)).name, 'air', 'doorway through the house wall')
+  assert.ok(skills.state('building').xp >= xp0 + 50)
+})
+
+test('bunker upgrade: a room under the house with a ladder down', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 500); bot.give('ladder', 8); bot.give('chest', 1); bot.give('stone_pickaxe', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage', size: 'small' }, 120000)
+  assert.match(r.text, /finished/, r.text)
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'bunker' }, 120000)
+  assert.ok(r.ok, r.text)
+  const { p, at } = projAt(mem)
+  const geo = H.baseGeometry(p).geo
+  const lf = geo.bunkerF ?? geo.mid + 1
+  for (let up = -4; up <= 0; up++) assert.strictEqual(bot.blockAt(at(geo.h - 1, up, lf)).name, 'ladder', `ladder at ${up}`)
+  assert.strictEqual(bot.blockAt(at(geo.h - 1, 1, lf)).name, 'air', 'nothing blocks the top of the ladder')
+  assert.strictEqual(bot.blockAt(at(0, -3, geo.mid)).name, 'air', 'the bunker is dug out')
+  assert.ok(T.isFirm(bot.blockAt(at(0, -1, geo.mid))), 'the house floor is still there above it')
+})
+
+test('second storey upgrade: an existing one-storey cottage gets an upper floor', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 700); bot.give('ladder', 8); bot.give('cobblestone', 200); bot.give('oak_log', 40)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage', size: 'medium' }, 120000)
+  assert.match(r.text, /finished the medium/, r.text)
+  const { at } = projAt(mem)
+  assert.ok(T.isFirm(bot.blockAt(at(0, 5, 4))), 'flat roof before')
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'second story' }, 180000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /two-storey/, r.text)
+  for (let up = 1; up <= 5; up++) assert.strictEqual(bot.blockAt(at(-3, up, 1)).name, 'ladder', `ladder at up ${up}`)
+  assert.strictEqual(bot.blockAt(at(0, 6, 4)).name, 'air', 'room upstairs')
+  assert.ok(T.isFirm(bot.blockAt(at(0, 10, 4))), 'new roof on top')
+})
+
+test('enchanting room upgrade: a table ringed by 15 bookshelves with a gap to walk in', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 700); bot.give('bookshelf', 15); bot.give('enchanting_table', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage', size: 'small' }, 120000)
+  assert.match(r.text, /finished/, r.text)
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'enchanting_room' }, 180000)
+  assert.ok(r.ok, r.text)
+  const { p, at } = projAt(mem)
+  const geo = H.baseGeometry(p).geo
+  const inner = (d) => geo.h + d
+  assert.strictEqual(bot.blockAt(at(inner(3), 1, geo.mid)).name, 'enchanting_table')
+  let shelves = 0
+  for (let dd = -2; dd <= 2; dd++) for (let df = -2; df <= 2; df++) if (bot.blockAt(at(inner(3 + dd), 1, geo.mid + df)).name === 'bookshelf') shelves++
+  assert.strictEqual(shelves, 15)
+  assert.strictEqual(bot.blockAt(at(inner(1), 1, geo.mid)).name, 'air', 'gap to walk in')
+  for (let dd = -1; dd <= 1; dd++) for (let df = -1; df <= 1; df++) if (dd || df) assert.strictEqual(bot.blockAt(at(inner(3 + dd), 1, geo.mid + df)).name, 'air', 'air between table and shelves')
+})
+
+test('upgrades show up in memory and the protected zone grows to cover them', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  stockBase(bot, 500); bot.give('chest', 3)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'cottage', size: 'small' }, 120000)
+  const Zn = require(P + 'src/body/zones')
+  const { p, at } = projAt(mem)
+  const geo = H.baseGeometry(p).geo
+  const wingSpot = at(-geo.h - 4, 1, geo.mid)
+  Zn.invalidate()
+  assert.strictEqual(Zn.zoneAt(mem, at(-geo.h - 7, 1, geo.mid)), null)
+  await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'storage_room' }, 120000)
+  Zn.invalidate()
+  assert.ok(Zn.zoneAt(mem, wingSpot), 'the wing is protected')
+  assert.match(mem.summary({ pos: bot.entity.position, dimension: 'overworld' }), /storage room/)
+})
+
+// ------------------------------------------------------------------ v0.8: farming
+test('farming tier 1: wheat patch next to existing water, other crops refused', async () => {
+  const bot = worldBot()
+  bot.give('wooden_hoe', 1); bot.give('wheat_seeds', 30); bot.give('carrot', 5)
+  bot.setBlock(new Vec3(6, 63, 6), 'water')
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: {} } })
+  let r = await runSkilled(bot, mem, skills, 'farm', { crop: 'carrots' })
+  assert.strictEqual(r.ok, false)
+  assert.match(r.text, /only know how to grow wheat/)
+  r = await runSkilled(bot, mem, skills, 'farm', {}, 60000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /started a 5x5 farm at 6 63 6/, r.text)
+  assert.match(r.text, /planted 24 wheat/, r.text)
+  assert.strictEqual(bot.blockAt(new Vec3(7, 63, 7)).name, 'farmland')
+  assert.strictEqual(bot.blockAt(new Vec3(7, 64, 7)).name, 'wheat')
+  assert.ok(mem.getPlace('farm'))
+  const r2 = await runSkilled(bot, mem, new SkillBook(new Memory(null), { bot: { skills: {} } }), 'breed_animals', { animal: 'cow' })
+  assert.match(r2.text, /farming tier 3/)
+})
+
+test('farming tier 1 with no water around says what is missing', async () => {
+  const bot = worldBot()
+  bot.give('wooden_hoe', 1); bot.give('wheat_seeds', 10); bot.give('water_bucket', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: {} } })
+  const r = await runSkilled(bot, mem, skills, 'farm', {})
+  assert.strictEqual(r.ok, false)
+  assert.match(r.text, /no water source/)
+})
+
+test('farming tier 2: makes its own water, fences the plot, harvests and replants ripe wheat', async () => {
+  const bot = worldBot()
+  bot.give('wooden_hoe', 1); bot.give('wheat_seeds', 64); bot.give('water_bucket', 1); bot.give('oak_fence', 64)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { farming: 2 } } } })
+  let r = await runSkilled(bot, mem, skills, 'farm', {}, 90000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /started a 9x9 farm/, r.text)
+  assert.match(r.text, /placed the water source/)
+  assert.match(r.text, /put up \d+ fence posts/)
+  const proj = mem.getProject('farm')
+  const c = new Vec3(proj.center.x, proj.center.y, proj.center.z)
+  assert.strictEqual(bot.blockAt(c).name, 'water')
+  assert.strictEqual(proj.water, 'made')
+  assert.strictEqual(bot.blockAt(c.offset(5, 1, 3)).name, 'oak_fence')
+  assert.strictEqual(bot.blockAt(c.offset(0, 1, -5)).name, 'air', 'a gap in the fence to get in')
+  // Grow everything, then another round harvests and replants.
+  let ripe = 0
+  for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
+    const q = c.offset(dx, 1, dz)
+    if (bot.blockAt(q).name === 'wheat') { bot._props.set(`${q.x},${q.y},${q.z}`, { age: 7 }); ripe++ }
+  }
+  assert.ok(ripe >= 60)
+  const left = bot._items.findIndex(i => i.name === 'wheat_seeds'); if (left >= 0) bot._items.splice(left, 1) // no seeds in hand
+  const dig = bot.dig
+  bot.dig = async (b) => { if (b.name === 'wheat') { bot.give('wheat', 1); bot.give('wheat_seeds', 2) } return dig(b) }
+  const xp = skills.state('farming').xp
+  r = await runSkilled(bot, mem, skills, 'farm', {}, 90000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, new RegExp(`harvested ${ripe} wheat`), r.text)
+  assert.match(r.text, /planted \d+ wheat/)
+  assert.ok(skills.state('farming').xp > xp + ripe)
+  const Zn = require(P + 'src/body/zones'); Zn.invalidate()
+  assert.ok(Zn.zoneAt(mem, c.offset(2, 1, 2)), 'the farm is protected')
+})
+
+test('farming tier 4: bone meal ripens crops', async () => {
+  const bot = worldBot()
+  bot.give('wooden_hoe', 1); bot.give('wheat_seeds', 64); bot.give('bone_meal', 10)
+  bot.setBlock(new Vec3(3, 63, 3), 'water')
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { farming: 4 } } } })
+  await runSkilled(bot, mem, skills, 'farm', {}, 90000)
+  const r = await runSkilled(bot, mem, skills, 'farm', {}, 90000)
+  assert.match(r.text, /used bone meal 10x/, r.text)
+})
+
+test('breeding: feeds two cows of the same kind', async () => {
+  const bot = worldBot()
+  bot.give('wheat', 4)
+  bot.entities = {
+    1: { id: 1, name: 'cow', position: new Vec3(3, 64, 0) },
+    2: { id: 2, name: 'cow', position: new Vec3(4, 64, 1) },
+    3: { id: 3, name: 'pig', position: new Vec3(2, 64, 2) }
+  }
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { farming: 3 } } } })
+  let r = await runSkilled(bot, mem, skills, 'breed_animals', { animal: 'cows' })
+  assert.ok(r.ok, r.text)
+  assert.deepStrictEqual(bot.fed.sort(), [1, 2])
+  r = await runSkilled(bot, mem, skills, 'breed_animals', { animal: 'pig' })
+  assert.match(r.text, /need 2 carrot or potato or beetroot/)
+})
+
+// ------------------------------------------------------------------ v0.8: the Nether
+test('nether is locked until combat 3 and mining 3', async () => {
+  const bot = worldBot()
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: {} } })
+  assert.strictEqual(skills.tier('nether'), 0)
+  const r = await runSkilled(bot, mem, skills, 'build_portal', {})
+  assert.match(r.text, /haven't learned build portal yet.*first get combat tier 3 and mining tier 3/)
+})
+
+test('portal: builds a 4x5 obsidian frame with cheap corners and lights it', async () => {
+  const bot = worldBot()
+  bot.give('obsidian', 10); bot.give('cobblestone', 20); bot.give('flint_and_steel', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { nether: 1 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_portal', {}, 60000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /built and lit a Nether portal/)
+  const p = mem.getPlace('nether_portal')
+  assert.strictEqual(bot.blockAt(new Vec3(p.x, p.y, p.z)).name, 'nether_portal')
+  assert.strictEqual(bot._items.find(i => i.name === 'obsidian'), undefined, 'used all 10 obsidian')
+  const r2 = await runSkilled(bot, mem, skills, 'build_portal', {})
+  assert.match(r2.text, /already a lit portal/)
+})
+
+test('portal refuses without enough obsidian', async () => {
+  const bot = worldBot()
+  bot.give('obsidian', 6); bot.give('flint_and_steel', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { nether: 1 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_portal', {})
+  assert.match(r.text, /need 10 obsidian .* have 6/)
+})
+
+test('nether trip: through the portal, mines quartz within range, comes back', async () => {
+  const bot = worldBot()
+  bot.give('obsidian', 14); bot.give('flint_and_steel', 1); bot.give('bread', 4)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { nether: 2 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_portal', {}, 60000)
+  assert.ok(r.ok, r.text)
+  // Standing in a portal block switches dimension (the sim keeps one world for both sides).
+  const goto = bot.pathfinder.goto
+  bot.pathfinder.goto = async (goal) => {
+    await goto(goal)
+    if (goal.kind === 'GoalBlock' && bot.blockAt(bot.entity.position).name === 'nether_portal') {
+      bot.game.dimension = /nether/.test(bot.game.dimension) ? 'overworld' : 'the_nether'
+    }
+  }
+  const portal = mem.getPlace('nether_portal')
+  const near = new Vec3(portal.x + 6, 64, portal.z + 6); const far = new Vec3(portal.x + 18, 64, portal.z - 18)
+  bot.setBlock(near, 'nether_quartz_ore'); bot.setBlock(far.offset(30, 0, 0), 'nether_quartz_ore')
+  const dig = bot.dig
+  bot.dig = async (b) => { if (b.name === 'nether_quartz_ore') bot.give('quartz', 1); return dig(b) }
+  r = await runSkilled(bot, mem, skills, 'nether_trip', { get: 'quartz' }, 90000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /back from the Nether with 1 quartz/, r.text)
+  assert.strictEqual(bot.game.dimension, 'overworld')
+  assert.ok(mem.getPlace('nether_portal_nether'))
+  r = await runSkilled(bot, mem, skills, 'nether_trip', { get: 'blaze rods' })
+  assert.match(r.text, /not experienced enough to go for blaze_rod/)
 })

@@ -3,8 +3,27 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (85 automated tests: 56 unit + 29 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (106 automated tests: 59 unit + 47 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.8.0: Home designs, base upgrades, farming and the Nether
+
+- **Home designs, picked at random** from the ones the bot's building tier knows (or asked for with `variant`)
+  - Surface: the classic **cottage**, or a long, narrow **longhouse** with a peaked roof.
+  - Underground: the square **cellar**, or a long **hall** with stone pillars.
+  - `build` huts are either a flat-roofed **box** or a **peaked** hut.
+- **Base upgrades instead of starting over** (`upgrade_base`): a bot that gets better improves the base it has.
+  - `storage_room` (tier 2): a side room of chests that join into a double chest.
+  - `bunker` (tier 3): a safe room under a surface house with a ladder down.
+  - `second_storey` (tier 4): turns a one-storey house into a two-storey one.
+  - `enchanting_room` (tier 4): an enchanting table with all 15 bookshelves.
+  - Upgrades are resumable, refuse to cut into other people's builds, and extend the protected zone.
+  - A finished `build_base` now points to upgrades instead of starting again. Memory lists each base with its design and upgrades, and the needs suggest unbuilt ones.
+- **New Farming skill** (4 tiers): `farm` picks a plot by water (or makes its own water from tier 2), then tills, plants, harvests and replants each round. Bigger plots, more crops, fences, then breeding (`breed_animals`) and bone meal at higher tiers. The farm is remembered and protected; needs and autopilot send the bot back when crops have had time to grow.
+- **The Nether skill is real now** (4 tiers, unlocks at combat 3 + mining 3)
+  - `build_portal` builds and lights a 4x5 portal near home.
+  - `nether_trip` makes a careful round trip for netherrack, quartz, gold, glowstone, nether wart, blaze rods or piglin bartering. Range and time grow with the tier. It turns back when hurt and avoids angering piglins.
+- Tests: 21 new (farming, portal and Nether trip in the simulated world, every design and upgrade).
 
 ## 0.7.0: Skills that grow with practice
 

@@ -32,7 +32,11 @@ function chooseActivity (bot, { memory } = {}) {
   // 3. Unfinished base and enough material to make progress.
   const unfinished = memory?.unfinishedProjects?.() || []
   if (unfinished.length && countMatching(bot, BUILDING) >= 30) return { plan: [{ name: 'build_base', args: { name: unfinished[0].name } }], why: `continuing the unfinished base "${unfinished[0].name}"` }
-  // 4. Food.
+  // 4. Food: tend the farm if it has had time to grow, otherwise hunt.
+  const farm = memory?.getProject?.('farm')
+  if (farm && !night && (!farm.lastRound || Date.now() - Date.parse(farm.lastRound) > 25 * 60000) && bot.inventory.items().some(i => i.name.endsWith('_hoe'))) {
+    return { plan: [{ name: 'farm', args: {} }], why: 'the crops should be ready' }
+  }
   if (foodSupply(bot) < 20) {
     const animal = bot.nearestEntity(e => FOOD_ANIMALS.has(e.name) && e.position.distanceTo(pos) < 24)
     if (animal) return { plan: [{ name: 'attack', args: { target: animal.name, count: 2 } }], why: 'food is running low' }

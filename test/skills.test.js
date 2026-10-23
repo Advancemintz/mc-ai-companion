@@ -125,3 +125,43 @@ test('the executor refuses skill actions above the bot\'s tier and counts attemp
   await until(() => finished)
   assert.strictEqual(sb.state('building').successes, 1)
 })
+
+test('v0.8: farming starts at tier 1; the Nether unlocks after combat 3 and mining 3', () => {
+  const sb = new SkillBook(null, cfg())
+  assert.strictEqual(sb.tier('farming'), 1)
+  assert.deepStrictEqual(sb.params('farming').crops, ['wheat'])
+  assert.strictEqual(sb.tier('nether'), 0)
+  sb.setFixed('combat', 3); sb.setFixed('mining', 3)
+  const ups = sb.award('farming', 1) // any XP re-checks unlocks
+  assert.ok(ups.some(u => u.skill === 'nether' && u.unlocked))
+  assert.strictEqual(sb.tier('nether'), 1)
+  assert.strictEqual(sb.params('nether').radius, 12)
+})
+
+test('v0.8: building tiers widen the designs and upgrades a bot knows', () => {
+  const at = (t) => new SkillBook(null, cfg({ startTiers: { building: t, mining: 3 } })).params('building')
+  assert.deepStrictEqual(at(1).variants, [])
+  assert.deepStrictEqual(at(2).variants.sort(), ['cellar', 'cottage', 'hall', 'longhouse'])
+  assert.deepStrictEqual(at(2).upgrades, ['storage_room'])
+  assert.ok(at(3).upgrades.includes('bunker'))
+  assert.deepStrictEqual(at(4).upgrades.sort(), ['bunker', 'enchanting_room', 'second_storey', 'storage_room'])
+})
+
+test('v0.8: needs suggest upgrading a finished base and tending the farm', () => {
+  const { assessNeeds } = require('../src/brain/drives')
+  const bot = fakeBot()
+  bot.inventory.emptySlotCount = () => 30
+  bot.registry.foodsByName = { bread: { foodPoints: 5 } }
+  for (const name of ['iron_pickaxe', 'iron_sword', 'torch', 'diamond']) bot._items.push({ name, count: 1 })
+  bot._items.push({ name: 'bread', count: 10 })
+  bot.inventory.slots[5] = { name: 'iron_helmet' }
+  const mem = new Memory(null)
+  mem.setPlace('home', { x: 0, y: 64, z: -3 })
+  const sb = new SkillBook(mem, cfg({ startTiers: { building: 3, mining: 2 } }))
+  mem.saveProject('base', { style: 'surface', size: 'small', variant: 'cottage', upgrades: ['storage_room'], status: 'done', origin: { x: 0, y: 63, z: 0 }, f: { x: 0, z: -1 } })
+  mem.saveProject('farm', { style: 'farm', center: { x: 5, y: 63, z: 5 }, radius: 2, lastRound: new Date(Date.now() - 3600000).toISOString() })
+  const text = assessNeeds(bot, { memory: mem, skills: sb }).map(n => n.text).join(' | ')
+  assert.match(text, /upgrade_base \(bunker\)/)
+  assert.match(text, /tend it with farm/)
+  assert.match(mem.summary({ pos: bot.entity.position, dimension: 'overworld' }), /Your base "base": small surface cottage .*upgrades: storage room/)
+})

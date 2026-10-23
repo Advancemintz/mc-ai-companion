@@ -14,11 +14,14 @@ const B = new Proxy({}, { get: (_, k) => require('./builder')[k] })
 let cache = { at: 0, memory: null, zones: [] }
 
 function projectBox (proj) {
+  if (proj.style === 'farm' && proj.center) {
+    const c = proj.center; const r = (proj.radius || 2) + 1
+    return { min: new Vec3(c.x - r, c.y - 1, c.z - r), max: new Vec3(c.x + r, c.y + 3, c.z + r) }
+  }
+  if (!proj.origin || !proj.f) return null
   const origin = new Vec3(proj.origin.x, proj.origin.y, proj.origin.z)
   const f = new Vec3(proj.f.x, 0, proj.f.z)
-  const layout = proj.style === 'surface' ? B.surfaceBaseCells(proj.size, proj.storeys || 1)
-    : proj.style === 'underground' ? B.undergroundBaseCells(proj.size, proj.depth)
-      : null
+  const layout = (proj.style === 'surface' || proj.style === 'underground') ? require('./homes').baseLayout(proj) : null
   if (!layout) return null
   const plan = B.toWorld(layout, origin, f, B.rightOf(f))
   const min = new Vec3(Infinity, Infinity, Infinity)

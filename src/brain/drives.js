@@ -73,6 +73,25 @@ function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
   if (!home) add('someday', canBase ? 'no home base yet: build one with build_base (surface house or underground), or a quick hut for now' : 'no home yet: build a hut (you are still learning to build; proper bases come later)')
   const unfinished = memory?.unfinishedProjects?.() || []
   if (unfinished.length) add('someday', `your ${unfinished[0].style} base "${unfinished[0].name}" is unfinished${unfinished[0].needs ? ` (needs ${unfinished[0].needs})` : ''}`)
+  // Grow the base instead of starting over: suggest upgrades the bot knows but hasn't built.
+  if (memory && !unfinished.length) {
+    const H = require('../body/homes')
+    const known = skills ? (skills.params('building')?.upgrades || []) : []
+    for (const [name, p] of Object.entries(memory.data.projects || {})) {
+      if (p.status !== 'done' || !H.UPGRADES || !(p.style === 'surface' || p.style === 'underground')) continue
+      const open = known.filter(u => H.UPGRADES[u]?.styles.includes(p.style) && !(p.upgrades || []).includes(u) && !(u === 'second_storey' && (p.storeys || 1) > 1))
+      if (open.length) { add('someday', `your base "${name}" could be improved with upgrade_base (${open.join(', ')}) instead of building a new one`); break }
+    }
+  }
+  // Farming: a steady food supply; come back when crops have had time to grow.
+  const farm = memory?.getProject?.('farm')
+  const canFarm = !skills || skills.tier('farming') >= 1
+  if (farm) {
+    const mins = farm.lastRound ? (Date.now() - Date.parse(farm.lastRound)) / 60000 : Infinity
+    if (mins > 25) add(supply < 20 ? 'soon' : 'someday', 'your farm has had time to grow: tend it with farm (harvest and replant)')
+  } else if (canFarm && supply < 30 && hasItem(bot, /_hoe$|wheat_seeds/)) {
+    add('someday', 'no farm yet: start one with farm for a steady food supply (needs a hoe and seeds)')
+  }
   if (bot.inventory.emptySlotCount() <= 4) add('soon', `inventory almost full (${bot.inventory.emptySlotCount()} free slots): use clean_inventory or deposit`)
 
   // Social
