@@ -60,6 +60,7 @@ let teamSenses = null
 let current = null // { bot, brain, executor }
 let reconnectDelay = 5000
 let shuttingDown = false
+let greeted = false
 
 function createBot () {
   const mc = config.minecraft
@@ -71,8 +72,9 @@ function createBot () {
     auth: mc.auth,
     version: mc.version || false,
     checkTimeoutInterval: 60 * 1000,
-    hideErrors: false
+    hideErrors: false // decode errors are summarised by watchProtocolErrors instead of dumped
   })
+  watchProtocolErrors(bot)
 
   bot.loadPlugin(pathfinder)
   bot.loadPlugin(tool)
@@ -122,16 +124,17 @@ function createBot () {
       brain.notify(`[level up] ${u.unlocked ? `You've unlocked a new skill: ${label}` : `Your ${label.toLowerCase()} skill reached tier ${u.tier}`} "${u.name}": now you can do ${u.can}. Feel free to celebrate briefly.`, true)
     })
     brain.onQuit = shutdown
-    startReflexes(bot, executor, config, (text, wake) => brain.notify(text, wake))
+    const stoppers = []
+    stoppers.push(startReflexes(bot, executor, config, (text, wake) => brain.notify(text, wake)))
     startSenses(bot, brain, config)
-    startIdleBehaviors(bot, executor, config)
+    stoppers.push(startIdleBehaviors(bot, executor, config))
     attachMannerisms(bot, executor, brain, config)
-    startRailOffers(bot, brain, memory, config)
-    startSocialSenses(bot, brain, social, config)
+    stoppers.push(startRailOffers(bot, brain, memory, config))
+    stoppers.push(startSocialSenses(bot, brain, social, config))
     brain.team = team
     teamSenses?.stop()
     teamSenses = startTeam(bot, team, { memory, brainNotify: (text, wake) => brain.notify(text, wake && config.bot.autonomous !== false) })
-    current = { bot, brain, executor }
+    current = { bot, brain, executor, stoppers }
 
     bot.on('chat', (username, message) => {
       if (username === bot.username) return
@@ -161,7 +164,8 @@ function createBot () {
       brain.notify('[event] You died and respawned. Your items were dropped where you died (saved as death_spot, they vanish after ~5 minutes).', true)
     })
 
-    if (config.bot.greeting) setTimeout(() => brain.say(config.bot.greeting), 1500)
+    // Say hello once per run, not after every reconnect.
+    if (config.bot.greeting && !greeted) { greeted = true; setTimeout(() => brain.say(config.bot.greeting), 1500) }
   })
 
   bot.on('kicked', (reason) => {
@@ -174,6 +178,7 @@ function createBot () {
   })
 
   bot.on('error', (err) => {
+    if (/PartialReadError|Read error for undefined|reading 'present'/.test(String(err?.stack || err?.message))) return // item data it couldn't read: summarised elsewhere
     log.error(`Connection error: ${err.message}`)
     if (err.code === 'ECONNREFUSED') {
       log.warn(`Nothing is listening on ${mc.host}:${mc.port}. Is the world open to LAN / the server running, and is the port right?`)
@@ -185,6 +190,15 @@ function createBot () {
 
   bot.on('end', (reason) => {
     log.warn(`Disconnected (${reason}).`)
+    // Shut this session down completely, or its brain keeps thinking and acting on a dead
+    // connection next to the new one after reconnecting.
+    if (current?.bot === bot) {
+      try { current.brain.stop() } catch {}
+      try { current.executor.shutdown() } catch {}
+      for (const s of current.stoppers || []) { try { typeof s === 'function' ? s() : s?.stop?.() } catch {} }
+      try { teamSenses?.stop() } catch {}
+      teamSenses = null
+    }
     current = null
     if (shuttingDown || !config.bot.reconnect) return
     log.info(`Reconnecting in ${reconnectDelay / 1000}s...`)
@@ -193,6 +207,44 @@ function createBot () {
   })
 
   return bot
+}
+
+// Some 1.21.x item data (enchantments, armour trims, custom names given in creative) can't be
+// decoded by the protocol library. Those packets are skipped, so the bot may not see those
+// items in its inventory or in chests. Warn once, plainly, instead of printing stack traces,
+// and keep a plugin crash on such an item from tearing the connection down.
+function watchProtocolErrors (bot) {
+  let count = 0
+  let warned = 0
+  const note = (err) => {
+    count++
+    if (Date.now() - warned < 5 * 60000) return
+    warned = Date.now()
+    log.warn(`Could not read some item data from the server (${count} packet${count === 1 ? '' : 's'} so far: ${String(err?.message || err).slice(0, 80)}). ` +
+      'Items like that (heavily enchanted or trimmed gear, items given in creative) may be invisible to the bot. Updating packages (npm update) usually fixes it; see README "Troubleshooting".')
+  }
+  const isDecodeError = (x) => /PartialReadError|Read error for undefined|reading 'present'/.test(String(x?.stack || x?.message || x))
+  bot._client?.on?.('error', (err) => { if (isDecodeError(err)) note(err) })
+  // The protocol library prints these itself, with full stack traces: count them instead.
+  if (!console._mcaiFiltered) {
+    console._mcaiFiltered = true
+    for (const k of ['log', 'error', 'warn']) {
+      const orig = console[k].bind(console)
+      console[k] = (...args) => { if (args.length && isDecodeError(args[0])) return console._mcaiNote?.(args[0]); orig(...args) }
+    }
+  }
+  console._mcaiNote = note
+  // Items an entity drops are decoded lazily; a broken one must not crash a plugin's listener.
+  try {
+    const Entity = require('prismarine-entity')(bot.version || '1.21.1')
+    const proto = Object.getPrototypeOf(new Entity(0))
+    if (proto.getDroppedItem && !proto.getDroppedItem._safe) {
+      const orig = proto.getDroppedItem
+      proto.getDroppedItem = function () { try { return orig.apply(this, arguments) } catch (err) { note(err); return null } }
+      proto.getDroppedItem._safe = true
+    }
+  } catch {}
+  bot._protocolErrorCount = () => count
 }
 
 // Type in the terminal to talk to the bot (counts as a server operator).

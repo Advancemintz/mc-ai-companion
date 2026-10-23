@@ -311,6 +311,7 @@ async function engage (bot, target, opts = {}) {
   try {
     while (Date.now() - started < maxMs) {
       check()
+      if (cur.type === 'player' && W.playerInvulnerable(bot, cur.username)) { stats.brokeOff = true; stats.invulnerable = W.playerInvulnerable(bot, cur.username); break }
       if (!isAlive(cur)) {
         stats.kills++
         stats.labels.push(W.entityLabel(cur))

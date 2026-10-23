@@ -6,7 +6,7 @@
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (221 automated tests: 110 unit + 111 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (225 automated tests: 114 unit + 111 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -575,6 +575,8 @@ Use a different config file with `node src/index.js my-other-config.json`. Set `
 - **The bot answers but doesn't move:** watch the terminal. Failed actions print a reason, such as "no path" or "need a tool".
 - **"can't reach my AI brain":** check that Ollama is running (`ollama list`) or that the API key and model name are right. The terminal shows the exact error.
 - **Slow replies:** use a smaller or faster model, lower `maxHistory`, or keep `think: false` for Ollama.
+- **"Could not read some item data from the server" / the bot says it doesn't have items it was given:** the protocol library couldn't decode some 1.21.x item data (heavily enchanted or trimmed gear, items handed out in creative). Those items are invisible to the bot, and crafting or chests can time out while it happens. Run `npm update` in the bot's folder to get the newest libraries; if it keeps happening, play on a Minecraft version mineflayer lists as fully supported, or give the bot plain survival items.
+- **Two sets of thoughts after a reconnect:** fixed in 0.14.1 (the old session now shuts down when the connection drops). Update if you see the bot reacting to things that aren't there after a disconnect.
 - **The bot ignores chat on a server with a chat plugin:** custom chat formats can hide the sender's name. Whisper to it instead (`/msg Companion hi`) or set the server's chat format to vanilla.
 
 ## Adding a new action

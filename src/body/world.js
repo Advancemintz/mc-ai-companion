@@ -128,7 +128,7 @@ function resolveCraftTarget (bot, query) {
       const base = log.name.replace(/^stripped_/, '').replace(/_(log|stem)$/, '')
       if (bot.registry.itemsByName[base + '_planks']) return base + '_planks'
     }
-    return 'oak_planks'
+    return askedPlanks ? full : 'oak_planks' // no logs at all: keep what was asked, so the error names the right log
   }
   if (q === 'stick') return 'stick'
   return resolveItemName(bot, query)
@@ -175,6 +175,14 @@ function nearestHostile (bot, maxDistance, filter = () => true) {
     Math.abs(e.position.y - bot.entity.position.y) < 5 &&
     filter(e)
   )
+}
+
+// A player in creative or spectator mode can't be hurt: don't bother fighting them.
+function playerInvulnerable (bot, username) {
+  if (!username) return null
+  const p = bot.players?.[username] || Object.values(bot.players || {}).find(x => String(x.username).toLowerCase() === String(username).toLowerCase())
+  const gm = p?.gamemode
+  return gm === 1 ? 'creative' : gm === 3 ? 'spectator' : null
 }
 
 function playerEntity (bot, username) {
@@ -252,6 +260,7 @@ module.exports = {
   isHostile,
   isMob,
   entityLabel,
+  playerInvulnerable,
   nearestHostile,
   playerEntity,
   bestWeapon,

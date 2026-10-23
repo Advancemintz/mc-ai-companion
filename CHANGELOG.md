@@ -3,8 +3,18 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (221 automated tests: 110 unit + 111 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (225 automated tests: 114 unit + 111 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.14.1: Fixes from the first real play session
+
+- **Reconnects:** when the connection dropped, the old session kept thinking and acting on the dead connection next to the new one, for minutes (fighting a cow that was gone, chatting into nowhere, two plans at once). The old brain, executor and background loops now shut down on disconnect.
+- **Unreadable item data** (1.21.x: heavily enchanted or trimmed gear, items given in creative): pages of stack traces are replaced by one plain warning every few minutes, and a plugin crash on such an item no longer counts as a connection error. Those items can still be invisible to the bot; see Troubleshooting.
+- **Fighting players:** won't attack (and stops fighting) a player in creative or spectator mode, and won't attack operator-protected players.
+- **Eating:** golden apples (and other always-edible items) can be eaten on a full stomach.
+- **Crafting:** asking for e.g. acacia planks with no logs keeps the name (the error now asks for the right log); the "now have" count is no longer reported while the inventory is still updating.
+- **Greeting:** said once per run, not after every reconnect.
+- Tests: 4 new unit tests.
 
 ## 0.14.0: Teamwork between bots
 

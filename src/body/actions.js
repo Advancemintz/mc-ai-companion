@@ -410,7 +410,12 @@ actions.attack = {
       ctx.check()
       let entity = null
       const player = W.playerEntity(bot, target)
-      if (player) entity = player
+      if (player) {
+        const mode = W.playerInvulnerable(bot, player.username)
+        if (mode) throw new Error(`${player.username} is in ${mode} mode and can't be hurt; attacking is pointless`)
+        if (ctx.social?.isProtected?.(player.username)) throw new Error(`${player.username} is protected by the operators; I won't attack them`)
+        entity = player
+      }
       else if (anyHostile) {
         entity = C.pickTarget(bot, C.nearbyThreats(bot, 32, e => !W.NEVER_AUTO_ATTACK.has(e.name)), skill)
       } else {
@@ -438,6 +443,7 @@ actions.attack = {
         onStatus: (t) => ctx.setStatus(t)
       })
       tricks.crits += st.crits; tricks.arrows += st.arrows; tricks.ate += st.ate
+      if (!st.killed && st.invulnerable) throw new Error(`${W.entityLabel(entity)} switched to ${st.invulnerable} mode; they can't be hurt now`)
       if (!st.killed) {
         if (killed) return `killed ${killed} ${target}, then the next one got away`
         throw new Error(`${W.entityLabel(entity)} got away`)
@@ -515,7 +521,10 @@ actions.craft = {
     await ctx.race(bot.craft(recipe, times, recipe.requiresTable ? table : null), 30000)
     let note = ''
     if (tempTable && table && await pickBackUp(ctx, table)) note = ' (picked the crafting table back up)'
-    return `crafted ${times * recipe.result.count} ${name} (now have ${W.countItem(bot, name)})${note}`
+    await ctx.sleep(200) // let the inventory catch up
+    const made = times * recipe.result.count
+    const have = W.countItem(bot, name)
+    return `crafted ${made} ${name}${have >= made ? ` (now have ${have})` : ''}${note}`
   }
 }
 
@@ -1054,8 +1063,10 @@ actions.eat = {
   params: { item: 'optional food name' },
   run: async (ctx, { item }) => {
     const { bot } = ctx
-    if (bot.food >= 20) return "I'm not hungry"
-    const food = item ? W.findInventoryItem(bot, item) : W.bestFood(bot, { allowBad: bot.food < 6 })
+    const ALWAYS = /^(golden_apple|enchanted_golden_apple|chorus_fruit|milk_bucket|honey_bottle|potion)$/ // the game lets you eat these when full
+    const wanted = item ? W.findInventoryItem(bot, item) : null
+    if (bot.food >= 20 && !(wanted && ALWAYS.test(wanted.name))) return "I'm not hungry (golden apples can still be eaten when full)"
+    const food = wanted || W.bestFood(bot, { allowBad: bot.food < 6 })
     if (!food) throw new Error('I have no food')
     await bot.equip(food, 'hand')
     await ctx.race(bot.consume(), 10000)

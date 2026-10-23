@@ -103,6 +103,7 @@ class Executor extends EventEmitter {
 
   // Validate and start a new plan. Returns a list of problems (unknown actions etc.).
   setPlan (plan, { append = false } = {}) {
+    if (this.dead) return ['the bot is disconnected']
     const problems = []
     const valid = []
     for (const step of plan) {
@@ -126,6 +127,13 @@ class Executor extends EventEmitter {
     if (valid.length && !append) { this._planResults = []; this._planNames = [] }
     this._kick()
     return problems
+  }
+
+  // The connection ended: cancel everything and refuse new work (a new executor takes over).
+  shutdown () {
+    this.dead = true
+    this.cancelAll('disconnected')
+    this.removeAllListeners()
   }
 
   cancelAll (reason = 'cancelled') {
@@ -213,7 +221,7 @@ class Executor extends EventEmitter {
   }
 
   _kick () {
-    if (this.running || this.reflexActive) return
+    if (this.dead || this.running || this.reflexActive) return
     if (!this.queue.length) return
     this.running = true
     this._loopPromise = this._loop().finally(() => {

@@ -93,6 +93,7 @@ class Brain {
   // Add an event. wake=true makes the brain think soon; otherwise it is
   // included the next time it thinks anyway.
   notify (text, wake = false, delayMs = 150, kind = 'event') {
+    if (this.stopped) return
     this.events.push({ text, wake, kind })
     if (this.events.length > 30) this.events.splice(0, this.events.length - 30)
     if (wake) this._schedule(delayMs)
@@ -168,7 +169,16 @@ class Brain {
     this.bot.once('end', () => clearInterval(iv))
   }
 
+  // The connection ended: this brain belongs to a bot that no longer exists. A new one takes
+  // over after reconnecting, so this one must never think or act again.
+  stop () {
+    this.stopped = true
+    if (this.timer) { clearTimeout(this.timer); this.timer = null }
+    this.events = []
+  }
+
   _schedule (delayMs) {
+    if (this.stopped) return
     if (this.timer) return
     this.timer = setTimeout(() => {
       this.timer = null
@@ -179,6 +189,7 @@ class Brain {
   // ---------------------------------------------------------------- thinking
 
   async _think () {
+    if (this.stopped) return
     if (this.thinking) return // _think re-checks pending events when it finishes
     if (this.paused) { this.events = []; return }
     if (!this.events.some(e => e.wake)) return
@@ -280,6 +291,7 @@ class Brain {
   // ---------------------------------------------------------------- outputs
 
   say (text) {
+    if (this.stopped) return
     // Never let model output run server commands, and respect the 256-char chat limit.
     let clean = String(text).replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim()
     clean = clean.replace(/^[/\\.!]+/, '').slice(0, 700)
