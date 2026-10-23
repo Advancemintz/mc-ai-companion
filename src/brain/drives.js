@@ -132,6 +132,8 @@ function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
   } else if (canFarm && supply < 30 && hasItem(bot, /_hoe$|wheat_seeds/)) {
     add('someday', 'no farm yet: start one with farm for a steady food supply (needs a hoe and seeds)')
   }
+  // Animals: pen rounds, shears, a wolf to tame, a hurt dog.
+  try { require('../body/husbandry').drives(bot, memory, skills, add) } catch {}
   // Exploration: land around home nobody has looked at yet.
   const exp = skills ? skills.params('exploration') : null
   if (exp && home && memory?.exploredShare && t < 7000 && outside && bot.health >= 16) {

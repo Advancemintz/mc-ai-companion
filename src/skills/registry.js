@@ -192,35 +192,35 @@ const SKILLS = {
         xp: 0,
         can: 'a small wheat patch (5x5) next to water you find, with `farm` (needs a hoe; you pull up grass for seeds)',
         next: 'harvest and replant your wheat a few times',
-        params: { plotRadius: 2, crops: ['wheat'], makeWater: false, fence: false, breed: false, boneMeal: false, pens: false }
+        params: { plotRadius: 2, crops: ['wheat'], makeWater: false, fence: false, breed: false, boneMeal: false, pens: false, cull: false, leads: false, eggThrow: false }
       },
       {
         name: 'Gardener',
         xp: 60,
         can: 'bigger farms (9x9) anywhere flat: a water bucket lets you make your own water. Grows wheat, carrots, potatoes and beetroot, and fences the farm in',
         next: 'keep harvesting; carry a water bucket and fences',
-        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: false, boneMeal: false, pens: false }
+        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: false, boneMeal: false, pens: false, cull: false, leads: false, eggThrow: false }
       },
       {
         name: 'Rancher',
         xp: 220,
-        can: 'everything so far, plus breeding animals with breed_animals, and fenced animal pens with build_pen (you lure animals in by holding their food)',
+        can: 'everything so far, plus breeding animals with breed_animals, fenced animal pens with build_pen (you lure animals in by holding their food), and ranch rounds with tend_animals: breed when there is room, shear sheep, milk cows, collect eggs, mend the fence (you never let a pen get overcrowded, but you are not yet good at deciding which animals go for meat)',
         next: 'breed animals and keep the farm going',
-        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: false, pens: true }
+        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: false, pens: true, cull: false, leads: false, eggThrow: false }
       },
       {
         name: 'Agronomist',
         xp: 600,
-        can: 'big farms (11x11) and bone meal to make crops grow at once',
+        can: 'big farms (11x11), bone meal to make crops grow at once, and real herd management: tend_animals keeps each pen at its herd size by culling spare adults for meat (never the young, never below a breeding pair), leads bring in animals from far away, and spare eggs get thrown for chicks',
         next: 'keep farming; master farmers grow melons, pumpkins and sugar cane too',
-        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: true, pens: true }
+        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: true, pens: true, cull: true, leads: true, eggThrow: true }
       },
       {
         name: 'Master farmer',
         xp: 1200,
         can: 'a melon and pumpkin patch (stems with room for the fruit to grow) and sugar cane along the water, with farm crop melon, pumpkin or sugar_cane; a normal farm round tends them too',
         next: 'top tier: keep everyone fed',
-        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot', 'melon', 'pumpkin', 'sugar_cane'], makeWater: true, fence: true, breed: true, boneMeal: true, pens: true }
+        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot', 'melon', 'pumpkin', 'sugar_cane'], makeWater: true, fence: true, breed: true, boneMeal: true, pens: true, cull: true, leads: true, eggThrow: true }
       }
     ]
   },
@@ -371,6 +371,7 @@ const ACTION_SKILLS = {
   farm: { skill: 'farming', minTier: 1 },
   breed_animals: { skill: 'farming', minTier: 3 },
   build_pen: { skill: 'farming', minTier: 3 },
+  tend_animals: { skill: 'farming', minTier: 3 },
   build_portal: { skill: 'nether', minTier: 1 },
   nether_trip: { skill: 'nether', minTier: 1 },
   make_netherite: { skill: 'nether', minTier: 5 },

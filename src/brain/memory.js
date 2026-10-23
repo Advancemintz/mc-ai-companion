@@ -350,6 +350,7 @@ class Memory {
       const ago = farm.lastRound ? Math.round((Date.now() - Date.parse(farm.lastRound)) / 60000) : null
       lines.push(`Your farm: ${farm.radius * 2 + 1}x${farm.radius * 2 + 1} at ${farm.center.x} ${farm.center.y} ${farm.center.z}${ago !== null ? `, last tended ${ago < 60 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : ''} (farm to harvest and replant; crops ripen in roughly 20-40 minutes)`)
     }
+    try { lines.push(...require('../body/husbandry').summaryLines(this)) } catch {}
     const mine = this.getProject('mine')
     if (mine) {
       const levels = Object.entries(mine.levels || {}).map(([y, l]) => `y=${y} tunnel ${l.progress}`).join(', ')

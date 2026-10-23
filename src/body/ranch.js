@@ -220,6 +220,55 @@ async function setGap (ctx, corner, open) {
   try { return await placeAt(ctx, g, gate.name, { solid: false }) === 'placed' } catch (err) { if (err instanceof CancelledError) throw err; return false }
 }
 
+// Bring animals of `kind` into the pen until it holds `target`. Holding their food makes them
+// follow (if they're close enough to notice); a lead works for any animal at any distance.
+// Returns how many came in.
+async function lureInto (ctx, corner, kind, foods, target, notes = [], { leads = false } = {}) {
+  const { bot } = ctx
+  const gate = penGate(corner)
+  const outsideGate = gate.offset(0, 0, 2)
+  const middle = corner.offset(3, 1, 3)
+  let lured = 0
+  let tries = 0
+  while (animalsInPen(bot, kind, corner).length < target && tries < target + 3) {
+    ctx.check()
+    tries++
+    const food = bot.inventory.items().find(i => foods.includes(i.name))
+    const lead = leads ? bot.inventory.items().find(i => i.name === 'lead') : null
+    if (!food && !lead) { notes.push(`no ${foods.join(' or ')} to lure them with`); break }
+    const inside = new Set(animalsInPen(bot, kind, corner).map(e => e.id))
+    const outside = Object.values(bot.entities || {}).filter(e => e?.name === kind && !inside.has(e.id) && e.position.distanceTo(bot.entity.position) < 48 &&
+      !require('./husbandry').protectedReason(ctx, e, { ignorePens: true }))
+      .sort((a, b) => a.position.distanceTo(corner) - b.position.distanceTo(corner))
+    if (!outside.length) { if (!lured) notes.push(`no ${kind}s nearby to bring in`); break }
+    const a = outside[0]
+    // Far away (or no food): a lead is surer than hoping it notices the food.
+    const useLead = !!lead && (!food || a.position.distanceTo(corner) > 16)
+    await setGap(ctx, corner, true)
+    ctx.setStatus(`${useLead ? 'leading' : 'luring'} a ${kind} into the pen`)
+    if (!useLead) await bot.equip(food, 'hand')
+    try { await goto(ctx, new goals.GoalFollow(a, useLead ? 2 : 3), 30000) } catch (err) { if (err instanceof CancelledError) throw err; continue }
+    if (useLead) {
+      await bot.equip(lead, 'hand')
+      try { await bot.activateEntity(a) } catch {}
+    }
+    await ctx.sleep(800) // let it notice the food
+    try {
+      await goto(ctx, new goals.GoalNear(outsideGate.x, outsideGate.y, outsideGate.z, 1), 40000)
+      await goto(ctx, new goals.GoalNear(middle.x, middle.y, middle.z, 1), 20000)
+      await ctx.sleep(1500) // it follows us in
+      if (useLead) { try { await bot.activateEntity(a) } catch {} await ctx.sleep(300) } // unclip the lead
+      // Put the food away so it stops following, then slip out and shut the gate.
+      try { await bot.unequip('hand') } catch {}
+      await goto(ctx, new goals.GoalNear(outsideGate.x, outsideGate.y, outsideGate.z, 1), 20000)
+    } catch (err) { if (err instanceof CancelledError) throw err }
+    await setGap(ctx, corner, false)
+    if (animalsInPen(bot, kind, corner).some(e => e.id === a.id)) { lured++; ctx.skills?.award('farming', 2, `penned a ${kind}`) }
+  }
+  if (!lured && tries === 0) await setGap(ctx, corner, false)
+  return lured
+}
+
 const buildPenAction = {
   description: 'Build (or top up) a fenced pen near home for one kind of animal and lure them in by holding their food (cows/sheep: wheat, pigs: carrots, chickens: seeds). The pen is 7x7 with a gate (needs about 24 fences, a fence gate if you have one). Later calls bring more animals in. Animals in a pen are easy to breed and never wander off.',
   params: { animal: 'cow | sheep | pig | chicken | rabbit ...', count: 'how many to have in it (default 4)' },
@@ -261,38 +310,8 @@ const buildPenAction = {
       try { if (await placeAt(ctx, p, fence.name, { solid: false }) === 'placed') posts++ } catch (err) { if (err instanceof CancelledError) throw err }
     }
     if (posts) ctx.skills?.award('farming', 4)
-    // Lure animals in: hold their food, walk up to one, then lead it through the gap into the pen.
-    let lured = 0
-    let tries = 0
-    while (animalsInPen(bot, kind, corner).length < target && tries < target + 3) {
-      ctx.check()
-      tries++
-      const food = bot.inventory.items().find(i => foods.includes(i.name))
-      if (!food) { notes.push(`no ${foods.join(' or ')} to lure them with`); break }
-      const inside = new Set(animalsInPen(bot, kind, corner).map(e => e.id))
-      const outside = Object.values(bot.entities || {}).filter(e => e?.name === kind && !inside.has(e.id) && e.position.distanceTo(bot.entity.position) < 48)
-        .sort((a, b) => a.position.distanceTo(corner) - b.position.distanceTo(corner))
-      if (!outside.length) { if (!lured) notes.push(`no ${kind}s nearby to bring in`); break }
-      const a = outside[0]
-      await setGap(ctx, corner, true)
-      await bot.equip(food, 'hand')
-      ctx.setStatus(`luring a ${kind} into the pen`)
-      try { await goto(ctx, new goals.GoalFollow(a, 3), 30000) } catch (err) { if (err instanceof CancelledError) throw err; continue }
-      await ctx.sleep(800) // let it notice the food
-      const outsideGate = gate.offset(0, 0, 2)
-      const middle = corner.offset(3, 1, 3)
-      try {
-        await goto(ctx, new goals.GoalNear(outsideGate.x, outsideGate.y, outsideGate.z, 1), 40000)
-        await goto(ctx, new goals.GoalNear(middle.x, middle.y, middle.z, 1), 20000)
-        await ctx.sleep(1500) // it follows us in
-        // Put the food away so it stops following, then slip out and shut the gate.
-        try { await bot.unequip('hand') } catch {}
-        await goto(ctx, new goals.GoalNear(outsideGate.x, outsideGate.y, outsideGate.z, 1), 20000)
-      } catch (err) { if (err instanceof CancelledError) throw err }
-      await setGap(ctx, corner, false)
-      if (animalsInPen(bot, kind, corner).some(e => e.id === a.id)) { lured++; ctx.skills?.award('farming', 2, `penned a ${kind}`) }
-    }
-    if (!lured && tries === 0) await setGap(ctx, corner, false)
+    const leads = !!ctx.skills?.params('farming')?.leads || !ctx.skills
+    const lured = await lureInto(ctx, corner, kind, foods, target, notes, { leads })
     const now = animalsInPen(bot, kind, corner).length
     proj.lastCount = now
     mem?.saveProject(key, proj)
@@ -300,4 +319,4 @@ const buildPenAction = {
   }
 }
 
-module.exports = { PATCH, tendPatch, tendCane, caneSpots, buildPenAction, penRing, penGate, penInside, animalsInPen, findPlot, PEN }
+module.exports = { PATCH, tendPatch, tendCane, caneSpots, buildPenAction, penRing, penGate, penInside, animalsInPen, findPlot, lureInto, setGap, OPEN, PEN }

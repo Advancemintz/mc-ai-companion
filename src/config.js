@@ -39,6 +39,9 @@ const DEFAULTS = {
   // Feelings, ownership, theft detection, stealing and sabotage (src/brain/social.js has the
   // full defaults). Built for servers where the players are AI bots: list any humans in "protected".
   social: {},
+  // Livestock: how big each pen's herd may get, the fewest adults to keep, and whether a skilled
+  // farmer may cull spare adults for meat (never the young).
+  ranch: { herdSize: 8, keepAdults: 2, cull: true, milk: true, shear: true },
   reflexes: {
     hazards: true, // get out of lava and fire, dig out when smothered, cut free of cobwebs
     autoEat: true,

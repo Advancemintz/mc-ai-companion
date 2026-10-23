@@ -6,7 +6,7 @@
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (193 automated tests: 94 unit + 99 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (206 automated tests: 100 unit + 106 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -53,7 +53,7 @@ Every bot starts as a beginner and improves by doing, like a real player. Each s
 | **Combat** | 1 Panicky: slow to react, flails, sometimes just runs, flees early · 2 Scrapper (40): times swings to the weapon cooldown, fights the most dangerous monster first, backs off to eat · 3 Fighter (200): shield, backs off from creepers, strafes, bow on skeletons and creepers up to 16 blocks · 4 Veteran (700): critical hits, leads moving targets with the bow (24 blocks), fights on at lower health · 5 Champion (1600): crits almost every swing, unpredictable strafing, bow out to 32 blocks |
 | **Exploration** | 1 Wanderer: `explore` up to 96 blocks from home for ~3 minutes; notices biomes and villages · 2 Scout (50): 192 blocks, 6 min; + caves, lava, other people's bases; heads for unexplored land · 3 Pathfinder (200): 384 blocks, 10 min; + structures (temples, outposts, dungeons, ruined portals...) · 4 Cartographer (600): 768 blocks, 15 min; marks big finds with a torch post |
 | **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
-| **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals` and `build_pen` · 4 Agronomist (600): 11x11 farms and bone meal · 5 Master farmer (1200): a melon and pumpkin patch and sugar cane |
+| **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals`, `build_pen` and ranch rounds with `tend_animals` · 4 Agronomist (600): 11x11 farms, bone meal, herd management (culling spare adults), leads, throwing eggs for chicks · 5 Master farmer (1200): a melon and pumpkin patch and sugar cane |
 | **Enchanting** | 1 Dabbler: `enchant` at a table, takes the best offer it can afford right away · 2 Enchanter (60): saves its levels for the table's top offer and enchants gear in order (pickaxe, sword, chestplate...) · 3 Arcanist (250): `anvil`: books onto gear, repairs, names · 4 Mending master (700): picks offers by the enchantment shown, Mending on the best gear first, remembers who sells it |
 | **The Nether** | unlocks at combat 3 + mining 3 · 1 Portal builder: `build_portal`, short peeks through · 2 Day tripper (80): quartz, Nether gold, glowstone within 32 blocks · 3 Fortress raider (300): nether wart and blaze rods within 96 · 4 Piglin trader (900): bartering gold with piglins · 5 Netherite smith (2000, needs combat 4 + mining 4): ancient debris, bastion raids, `make_netherite` |
 
@@ -228,7 +228,8 @@ The terminal window counts as an operator too.
 | `build` | hut (walls, roof, doorway; `size` 2-7), wall, tower, platform, floor. Picks a flat, open, dry spot within 16 blocks on its own, clears leaves/plants, levels small bumps, fills dips, and mixes materials if one isn't enough. The first hut is saved as home. |
 | `build_base` | a real base in one of several designs, as a resumable project (see below) |
 | `upgrade_base` | improve the base you have: storage room, bunker, second storey, enchanting room (whichever fit the design) |
-| `farm`, `breed_animals`, `build_pen` | a crop farm near home that it tills, plants, harvests and replants (plus a melon/pumpkin patch and sugar cane for master farmers); breeding animals; fenced pens it lures animals into (see below) |
+| `farm`, `breed_animals`, `build_pen`, `tend_animals` | a crop farm near home that it tills, plants, harvests and replants (plus a melon/pumpkin patch and sugar cane for master farmers); breeding animals; fenced pens it lures or leads animals into; ranch rounds of its pens (see below) |
+| `tame`, `pet` | tame a wolf, cat or parrot and name it; tell pets to sit or follow, heal them, or take them home and sit them there |
 | `build_portal`, `nether_trip`, `make_netherite` | build and light a Nether portal; a careful round trip to gather one thing, tunnel for ancient debris or raid a bastion; turn debris into netherite gear (see below) |
 | `mine` | a proper mine: covered entrance away from bases, stairs to the right depth for the ore, branch or strip mining (see below) |
 | `cave` | caving: into a known cave with torches, mines the ore on the walls, back out the way it came (see below) |
@@ -383,7 +384,20 @@ The bot's memory lists each base with its design and upgrades, and its needs sug
 
 `breed_animals` (tier 3) feeds two adults of a kind with the right food (wheat for cows and sheep, carrots/potatoes/beetroot for pigs, seeds for chickens, carrots for rabbits).
 
-`build_pen` (tier 3, `animal`, `count`) builds a 7x7 fenced pen near home (about 24 fences, plus a fence gate if it has one) and fills it the way players do: it holds the animals' food, walks up to one, leads it in through the gate, puts the food away so it stops following, steps out and shuts the gate. Later calls bring more in. Pens are saved and protected like the farm.
+`build_pen` (tier 3, `animal`, `count`) builds a 7x7 fenced pen near home (about 24 fences, plus a fence gate if it has one) and fills it the way players do: it holds the animals' food, walks up to one, leads it in through the gate, puts the food away so it stops following, steps out and shuts the gate. Later calls bring more in. From tier 4 it can use a **lead** instead, which works for animals too far away to notice the food (it unclips the lead inside the pen and keeps it). Pens are saved and protected like the farm.
+
+**Ranch rounds.** `tend_animals` (tier 3; optional `animal`, `herd_size`, `cull: "no"`) visits each pen and does what a farmer would:
+
+- **Counts the herd**, adults and young (babies are told apart by their metadata), and shows it in memory: "Your cow pen: 4 adults + 2 young, last tended 12 min ago; so far 6 born, 30 eggs".
+- **Breeds** when there is room under the herd size and it carries two of their food per pair, but not within 5 minutes of the last breeding (the game's cooldown).
+- **Keeps the herd at its size** (tier 4): spare adults are culled for meat, never the young, never named animals and never below a breeding pair. When it's hungry and short of food it takes one from a big herd. At tier 3 it only notices that the pen is crowded and stops breeding.
+- **Shears sheep** (with shears), **milks a cow or goat** into an empty bucket when it has no milk, **collects eggs** and other drops, and from tier 4 **throws spare eggs** into a chicken pen that has room.
+- **Shuts the gate behind it**, puts the food away before it leaves so nothing follows it out, **mends gaps in the fence** if it carries fences, and **brings back** anything that slipped out while the gate was open.
+- Settings: `ranch.herdSize` (default 8 per pen), `ranch.keepAdults` (2), `ranch.cull`, `ranch.milk`, `ranch.shear`. Needs and the autopilot do a round every 20 minutes or so when the bot has something useful to bring.
+
+**Its own animals are safe from it.** `attack` (and the autopilot's hunting) skips animals in the bot's pens, anyone's pets, named animals and animals inside somebody else's base, and says why ("the only cow near here is in your pen; thin the herd with tend_animals instead"). Perception tags animals as baby, sheared, "in your pen" or "your dog Rex".
+
+**Pets.** `tame` a wolf with bones (it takes a few), a cat with raw cod or salmon (it creeps up, then stands still and lets the cat come to it) or a parrot with seeds, and give it a name (or it picks one). `pet` with `mode`: `list` (who's with you, sitting or following, health; where the others were last seen), `sit` / `follow` (one by name or all), `feed` (heals a hurt dog with meat, a cat with fish), `home` (walks home with them and sits them there before a dangerous trip) and `name`. Pets are remembered across restarts, and needs mention a hurt dog, a wild wolf when it carries bones, and missing shears for its sheep.
 
 **Master farmers (tier 5)** also keep a **melon or pumpkin patch** (`farm` with `crop` melon or pumpkin: a 7x3 strip with stems every other block and room around them for the fruit; it harvests the fruit and leaves the stems) and **sugar cane** (`crop` sugar_cane: planted on dirt or sand right beside water near home; it cuts from the second block up so it regrows). A normal `farm` round tends both too.
 
@@ -518,6 +532,7 @@ When a reflex interrupts a task, the task resumes afterwards with what's left. F
 | `bot.showThoughts` | true | print the model's reasoning in the terminal |
 | `bot.mannerisms` | on, level 0.5 | human touches: pauses, gestures, fidgets, admiring builds (`enabled`, `level` 0-1) |
 | `reflexes.*` | | turn reflexes on/off (`hazards`, `autoEat`, `selfDefense`, `autoArmor`), `defendRadius`, `fleeHealth` |
+| `ranch.*` | `herdSize: 8, keepAdults: 2, cull: true, milk: true, shear: true` | animal pens: how many each may hold, the fewest adults to keep, and whether a skilled farmer may cull spare adults for meat |
 | `social.*` | see *Feelings, property and mischief* | feelings, ownership, theft detection, stealing, sabotage, protected players |
 | `llm.temperature` | 0.6 | creativity (ignored by OpenAI reasoning models unless set per provider) |
 | `llm.maxHistory` | 16 | past messages sent each time (more = better memory, slower and costlier) |
@@ -598,6 +613,7 @@ src/skills/skillbook.js  a bot's progress: XP, level-ups, caps, lessons, operato
 src/body/actions.js   every action the model can choose
 src/body/executor.js  runs plans, cancellation, reflex interrupts + resume
 src/body/reflexes.js  eat / defend / flee / swim
+src/body/husbandry.js ranch rounds, herd sizes, protecting livestock, pets
 src/body/perception.js  the "what I see" summary sent to the model
 test/                 unit tests (npm test), no Minecraft needed
 sim/                  simulated-world tests (npm run test:sim); sim/harness.js is the fake world

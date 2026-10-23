@@ -72,8 +72,19 @@ function chooseActivity (bot, { memory, skills = null } = {}) {
   if (farm && !night && (!farm.lastRound || Date.now() - Date.parse(farm.lastRound) > 25 * 60000) && bot.inventory.items().some(i => i.name.endsWith('_hoe'))) {
     return { plan: [{ name: 'farm', args: {} }], why: 'the crops should be ready' }
   }
+  // 4b. Animal pens due a round (and the food or tools to make it worthwhile).
+  const HB = require('../body/husbandry')
+  const farming = skills?.params?.('farming')
+  const pens = HB.myPens(memory)
+  if (pens.length && !night && (!skills || farming?.breed) && Date.now() - (bot._lastTendTry || 0) > 10 * 60000) {
+    const { ANIMAL_FOOD } = require('../body/farming')
+    const due = pens.filter(p => !p.lastRound || Date.now() - Date.parse(p.lastRound) > 20 * 60000)
+    const useful = due.filter(p => (ANIMAL_FOOD[p.kind] || []).some(f => countMatching(bot, new RegExp(`^${f}$`)) >= 2) ||
+      (p.kind === 'sheep' && countMatching(bot, /^shears$/)) || p.kind === 'chicken' || ((p.herd?.adults || 0) + (p.herd?.babies || 0) > (p.cap || 8)))
+    if (useful.length) { bot._lastTendTry = Date.now(); return { plan: [{ name: 'tend_animals', args: {} }], why: `your ${useful[0].kind} pen is due a round` } }
+  }
   if (foodSupply(bot) < 20) {
-    const animal = bot.nearestEntity(e => FOOD_ANIMALS.has(e.name) && e.position.distanceTo(pos) < 24)
+    const animal = bot.nearestEntity(e => FOOD_ANIMALS.has(e.name) && e.position.distanceTo(pos) < 24 && !HB.protectedReason({ bot, memory, social: null }, e))
     if (animal) return { plan: [{ name: 'attack', args: { target: animal.name, count: 2 } }], why: 'food is running low' }
   }
   // 5. Wood is always useful.

@@ -415,7 +415,13 @@ actions.attack = {
         entity = C.pickTarget(bot, C.nearbyThreats(bot, 32, e => !W.NEVER_AUTO_ATTACK.has(e.name)), skill)
       } else {
         const name = q.endsWith('s') && !bot.registry.entitiesByName?.[q] ? q.slice(0, -1) : q
-        entity = bot.nearestEntity(e => e.name === name && e.position.distanceTo(bot.entity.position) < 32)
+        // Your own livestock, pets and named animals are not for hunting.
+        const HB = require('./husbandry')
+        entity = bot.nearestEntity(e => e.name === name && e.position.distanceTo(bot.entity.position) < 32 && !HB.protectedReason(ctx, e))
+        if (!entity && !killed) {
+          const spared = bot.nearestEntity(e => e.name === name && e.position.distanceTo(bot.entity.position) < 32)
+          if (spared) throw new Error(`the only ${name} near here is ${HB.protectedReason(ctx, spared)}; I won't kill it`)
+        }
       }
       if (!entity) {
         if (killed) return `killed ${killed} ${target}; no more nearby`
@@ -1283,6 +1289,10 @@ const FARM = require('./farming')
 actions.farm = FARM.farmAction
 actions.breed_animals = FARM.breedAction
 actions.build_pen = require('./ranch').buildPenAction
+const HB = require('./husbandry')
+actions.tend_animals = HB.tendAnimalsAction
+actions.tame = HB.tameAction
+actions.pet = HB.petAction
 const NETHER = require('./nether')
 actions.build_portal = NETHER.portalAction
 actions.nether_trip = NETHER.tripAction

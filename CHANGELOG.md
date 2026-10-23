@@ -3,8 +3,18 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (193 automated tests: 94 unit + 99 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (206 automated tests: 100 unit + 106 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.13.0: Looking after animals
+
+- **Ranch rounds:** new `tend_animals` (farming tier 3) visits each pen: counts adults and young, breeds when there's room (respecting the game's 5-minute cooldown), shears sheep, milks a cow into an empty bucket, collects eggs and drops, mends fence gaps, shuts the gate behind it, puts the food away before leaving, and brings back anything that slipped out.
+- **Herd management** (tier 4): keeps each pen at its herd size by culling spare adults for meat, never the young, named animals or the last breeding pair; takes one for the pot when hungry; throws spare eggs for chicks. New `ranch` settings: `herdSize`, `keepAdults`, `cull`, `milk`, `shear`.
+- **Leads** (tier 4): `build_pen` and escape-chasing lead in animals too far away to notice food, then unclip and keep the lead.
+- **Own animals are safe:** `attack` and autopilot hunting skip animals in your pens, pets, named animals and animals in someone else's base, and explain why.
+- **Pets:** `tame` a wolf (bones), cat (fish, approached slowly) or parrot (seeds) and name it; `pet` lists, sits, follows, heals, renames, or takes them home to sit before dangerous trips. Pets are remembered.
+- Memory shows each pen's herd, last round and totals, plus your pets. Perception tags animals (baby, sheared, in your pen, your dog Rex). Needs and the autopilot suggest pen rounds, shears, taming a nearby wolf and feeding a hurt dog.
+- Tests: 13 new (6 unit, 7 simulated-world).
 
 ## 0.12.0: Enchanting
 

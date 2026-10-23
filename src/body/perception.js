@@ -82,7 +82,9 @@ function describe (bot, { executor, maxEntities = 10, blockRadius = 16 } = {}) {
     if (d > 32) continue
     if (e.type === 'player') players.push({ label: e.username, d })
     else if (W.isMob(e)) {
-      mobs.push({ label: e.name + (W.isHostile(e) ? ' (hostile)' : ''), d })
+      let tag = ''
+      try { tag = require('./husbandry').animalTag(bot, e, executor?.memory) } catch {}
+      mobs.push({ label: e.name + (W.isHostile(e) ? ' (hostile)' : '') + (tag ? ` (${tag})` : ''), d })
     }
   }
   players.sort((a, b) => a.d - b.d)
