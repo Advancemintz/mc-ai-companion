@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.6.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.7.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Features at a glance:** chats and decides with any LLM · mines, fights, crafts and smelts · builds real bases (surface or underground) · digs proper mines · lays powered minecart railways · has its own goals, needs, memory and personality · server operators stay in control.
+**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, fights, crafts and smelts · builds real bases (surface or underground) · digs proper mines · lays powered minecart railways · has its own goals, needs, memory and personality · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (66 automated tests), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (85 automated tests: 56 unit + 29 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -41,6 +41,47 @@ With `bot.autonomous` on (the default), the bot is a fellow player, not just a h
 Its personality comes from `bot.personality` in the config. Give it likes, fears and quirks and its choices change. Set `autonomous` to `false` if you want it to wait for orders (it still handles urgent needs like nightfall).
 
 **Cost note:** with a cloud model, an autonomous bot makes roughly 2-4 calls a minute while idle. Raise `idleThinkSeconds` to slow it down. Ollama is free.
+
+## Skills: it gets better with practice
+
+Every bot starts as a beginner and improves by doing, like a real player. Each skill has tiers, and the tier decides what the bot can do and how well it does it:
+
+| Skill | Tiers |
+|---|---|
+| **Building** | 1 Dirt-hut novice: small huts only, misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases, forgets some windows and torches · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail · 4 Architect (1200 XP, needs mining 3): two-storey houses with a ladder and an upstairs bedroom |
+| **Mining** | 1 Surface scraper: only stone and ores it can see · 2 Tunneler (60): its own `mine` for coal, copper and iron, with short branches · 3 Prospector (250): every ore, full branch mines and veins · 4 Deep miner (800): tighter, longer branches and bigger veins |
+| **Combat** | 1 Panicky: slow to react, sometimes just runs, flees early · 2 Scrapper (40) · 3 Fighter (200): uses a shield and backs off from creepers · 4 Veteran (700): calm, fights on at lower health |
+| **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
+| **The Nether** | placeholder (unlocks at combat 3 + mining 3); Nether actions are a future update |
+
+- **XP comes from results:** a finished base, ores mined (diamonds count most), fights won, track laid. Failed attempts give a little too.
+- **Some tiers need other skills first.** For example, Homesteader needs mining tier 2.
+- **Too-advanced requests fail politely:** "I haven't learned that yet… to improve: build huts and walls". The bot then practises the easier version.
+- **Lessons:** after a failure the bot can save a one-line lesson with `note_lesson`, and it reads its lessons before trying again.
+- **Specialisation:** `skills.affinity` makes each bot learn some skills faster. Give mike 1.5 for building and boot 1.5 for combat, and they naturally grow into different roles.
+- **Saved progress:** skills are stored in the bot's memory file. `!wipe confirm` resets them too, and `!resetskills confirm` resets only the skills.
+
+**Universal behaviours** are the same for every bot at every level, because every player just knows them: walking, eating, reflexes (except how well it fights), memory, tidy placement, respecting bases, and obeying operators.
+
+**Settings** (`bot.skills` in `config.json`):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `mode` | natural | `natural` = earn XP; `fixed` = stay at the start tier |
+| `startTier` / `startTiers` | 1 / {} | starting tier for all skills, or per skill (`{"building": 3}`); use 3 to start at the old full abilities |
+| `caps` | {} | highest tier allowed per skill |
+| `affinity` | 1.0 each | XP multiplier per skill (talents and weak spots) |
+| `xpRate` | 1 | global XP speed |
+
+### Adding new tiers
+
+Tiers live in `src/skills/registry.js` as data: a name, XP needed, prerequisites, a plain-language description, and `params` that the action code reads. To add one:
+
+1. Add the tier with its params.
+2. Make the action read the new params (for example `ctx.skills.params('building').storeys`).
+3. Add a simulated-world test that runs the action at that tier.
+
+Blueprints and other content work best as data, so new variety (house styles, palettes) mostly means new data, not new code. That's what makes it practical to generate tiers in bulk later.
 
 ## Requirements
 
@@ -115,7 +156,7 @@ Nobody owns the bot. Whether it does what you ask depends on its personality, it
 
 | Command | Who | Does |
 |---|---|---|
-| `!status`, `!goals`, `!help` | anyone | health/activity, its goals, the command list |
+| `!status`, `!goals`, `!skills`, `!help` | anyone | health/activity, its goals, its skill tiers, the command list |
 | `!stop` | OP | stop everything |
 | `!come [player]`, `!follow [player]` | OP | walk to / follow you (or the named player) |
 | `!think` | OP | make it decide what to do on its own right now |
@@ -126,6 +167,10 @@ Nobody owns the bot. Whether it does what you ask depends on its personality, it
 | `!wipe confirm` | OP | erase all of its memories: places, goals, journal, opinions |
 | `!op <name>` / `!deop <name>` | OP | let someone else control it, or take that away |
 | `!quit` | OP | log the bot off |
+| `!skill <name/all> tier <n>` | OP | fix a skill at a tier (`natural` to go back to earning it) |
+| `!skill <name/all> cap <n>` / `nocap` | OP | limit a skill's tier |
+| `!skill <name/all> xp <n>` / `lock` / `unlock` / `reset` | OP | set XP, freeze progress, or start over |
+| `!resetskills confirm` | OP | every skill back to tier 1 (memories kept) |
 
 **How it knows who is OP.** Minecraft doesn't tell other players who is an operator, so the bot recognizes them in three ways:
 
@@ -296,6 +341,8 @@ src/body/idle.js      idle animation
 src/brain/autopilot.js  fallback activities when the model idles
 src/body/railway.js   railway routes, track, power, stations
 src/brain/railOffers.js  weekly railway offers to players
+src/skills/registry.js  the skill library: tiers, XP, prerequisites, params (data)
+src/skills/skillbook.js  a bot's progress: XP, level-ups, caps, lessons, operator controls
 src/body/actions.js   every action the model can choose
 src/body/executor.js  runs plans, cancellation, reflex interrupts + resume
 src/body/reflexes.js  eat / defend / flee / swim
@@ -305,7 +352,7 @@ test/                 unit tests (npm test), no Minecraft needed
 
 ## Contributing
 
-Issues and pull requests are welcome. Run `npm test` before sending changes (no Minecraft needed). When reporting a bug, include the terminal output around the problem and your Minecraft version and LLM provider.
+Issues and pull requests are welcome. Run `npm test` (fast unit tests) and `npm run test:sim` (simulated-world tests: real actions against a fake in-memory world, a few minutes) before sending changes. Neither needs Minecraft. When reporting a bug, include the terminal output around the problem and your Minecraft version and LLM provider.
 
 ## Ideas for later
 

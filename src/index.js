@@ -21,6 +21,7 @@ const { startSenses } = require('./brain/senses')
 const { protectMovements } = require('./body/zones')
 const { startIdleBehaviors } = require('./body/idle')
 const { startRailOffers } = require('./brain/railOffers')
+const { SkillBook } = require('./skills/skillbook')
 const { AdminControl, parseSayCommand } = require('./brain/admin')
 const log = require('./util/log')
 
@@ -44,6 +45,8 @@ try {
 const memory = Memory.forBot(config)
 log.info(`Memory file: ${memory.file}`)
 const admin = new AdminControl(config, memory)
+const skills = new SkillBook(memory, config)
+log.info(`Skills: ${skills.summaryShort()}`)
 
 let current = null // { bot, brain, executor }
 let reconnectDelay = 5000
@@ -97,7 +100,14 @@ function createBot () {
     bot.pvp.attackRange = 3
 
     const executor = new Executor(bot, actions, { memory, stuckSeconds: config.bot.stuckSeconds })
-    const brain = new Brain({ bot, llm, executor, actions, config, memory, admin })
+    skills.attach(executor)
+    const brain = new Brain({ bot, llm, executor, actions, config, memory, admin, skills })
+    skills.removeAllListeners('levelUp')
+    skills.on('levelUp', (u) => {
+      const label = require('./skills/registry').SKILLS[u.skill].label
+      log.info(`LEVEL UP: ${label} -> tier ${u.tier} "${u.name}"`)
+      brain.notify(`[level up] ${u.unlocked ? `You've unlocked a new skill: ${label}` : `Your ${label.toLowerCase()} skill reached tier ${u.tier}`} "${u.name}": now you can do ${u.can}. Feel free to celebrate briefly.`, true)
+    })
     brain.onQuit = shutdown
     startReflexes(bot, executor, config, (text, wake) => brain.notify(text, wake))
     startSenses(bot, brain, config)

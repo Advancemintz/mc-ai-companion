@@ -111,14 +111,14 @@ function chooseMineSite (bot, memory, depth) {
 }
 
 // Branch-mining layout at one level: yields steps, each a list of block positions to dig.
-function * branchSteps (start, dir) {
+function * branchSteps (start, dir, { spacing = 4, length = 6 } = {}) {
   const side = new Vec3(-dir.z, 0, dir.x)
   for (let k = 1; ; k++) {
     const p = start.plus(dir.scaled(k))
     yield { cells: [p, p.offset(0, 1, 0)], main: true, k }
-    if (k % 4 === 0) {
+    if (k % spacing === 0) {
       for (const s of [side, side.scaled(-1)]) {
-        for (let j = 1; j <= 6; j++) {
+        for (let j = 1; j <= length; j++) {
           const q = p.plus(s.scaled(j))
           yield { cells: [q, q.offset(0, 1, 0)], main: false, k }
         }
@@ -160,6 +160,12 @@ module.exports.mineAction = {
     if (!target) throw new Error(`I don't know how to mine for "${args.target}". Try coal, iron, gold, diamond, redstone, lapis, copper or stone`)
     const spec = TARGETS[target]
     const wanted = Math.max(1, Math.min(64, Math.round(Number(args.count) || 8)))
+    // Mining skill: which targets the bot knows how to go after, and how good its mines are.
+    const skill = ctx.skills?.params('mining') || { targets: Object.keys(TARGETS), branchSpacing: 4, branchLength: 6, veinLimit: 16, torchEvery: 8 }
+    if (!skill.targets.includes(target)) {
+      if (!skill.targets.length) ctx.skills.require('mining', 2, 'digging my own mine')
+      throw new Error(`I don't know how to mine for ${target} yet; I can go after: ${skill.targets.join(', ')}. (Mining more will improve that.)`)
+    }
 
     // Tool check: the pickaxe must be good enough to actually drop the ore.
     const sample = bot.registry.blocksByName[spec.ores[0]]
@@ -214,7 +220,8 @@ module.exports.mineAction = {
         start = origin.plus(f.scaled(stepIndex)).offset(0, levelY - origin.y, 0)
         dir = r.scaled(-1)
       }
-      level = proj.levels[key] = { start: { x: start.x, y: start.y, z: start.z }, dir: { x: dir.x, z: dir.z }, progress: 0, mined: {} }
+      // The layout is fixed per level when it's started, so resuming never scrambles the tunnels.
+      level = proj.levels[key] = { start: { x: start.x, y: start.y, z: start.z }, dir: { x: dir.x, z: dir.z }, progress: 0, mined: {}, spacing: skill.branchSpacing, length: skill.branchLength }
       if (mem) mem.setPlace(`mine_y${levelY}`, start, bot.game?.dimension, `branch mine level for ${target}`)
       save()
     }
@@ -227,7 +234,9 @@ module.exports.mineAction = {
     const got = {}
     let gotTarget = 0
     let steps = 0
-    const gen = branchSteps(start, dir)
+    const gen = branchSteps(start, dir, { spacing: level.spacing || 4, length: level.length || 6 })
+    const ORE_XP = { diamond: 15, emerald: 15, gold: 6, redstone: 5, lapis: 5, iron: 4, copper: 3, coal: 2 }
+    const oreXp = (n) => { const m = n.match(/(diamond|emerald|gold|redstone|lapis|iron|copper|coal)_ore$/); return m ? ORE_XP[m[1]] : 0.2 }
     for (let i = 0; i < level.progress; i++) gen.next()
 
     while (gotTarget < wanted && steps < 90) {
@@ -236,7 +245,7 @@ module.exports.mineAction = {
       const step = gen.next().value
       for (const p of step.cells) {
         const b = bot.blockAt(p)
-        if (b && anyOre(b.name)) { got[b.name] = (got[b.name] || 0) + 1; if (wantedName(b.name)) gotTarget++ }
+        if (b && anyOre(b.name)) { got[b.name] = (got[b.name] || 0) + 1; if (wantedName(b.name)) gotTarget++; ctx.skills?.award('mining', oreXp(b.name)) }
         await B.digCell(ctx, p, new Set(), stats)
       }
       // Keep a floor under the tunnel (don't fall into caves).
@@ -246,22 +255,24 @@ module.exports.mineAction = {
         if (mat) { try { await placeAt(ctx, floor, mat) } catch (err) { if (err instanceof CancelledError) throw err } }
       }
       // Dig out ore veins uncovered in the walls, floor and ceiling.
-      const vein = findVein(bot, step.cells, anyOre)
+      const vein = findVein(bot, step.cells, anyOre, skill.veinLimit)
       for (const p of vein) {
         const b = bot.blockAt(p)
         if (!b) continue
         got[b.name] = (got[b.name] || 0) + 1
         if (wantedName(b.name)) gotTarget++
+        ctx.skills?.award('mining', oreXp(b.name))
         try { await B.digCell(ctx, p, new Set(), stats) } catch (err) { if (err instanceof CancelledError) throw err }
       }
       if (vein.length) await pickupDrops(ctx)
       // Torches every 8 blocks along the main tunnel.
-      if (step.main && step.k % 8 === 0) {
+      if (step.main && step.k % (skill.torchEvery || 8) === 0) {
         const torch = B.pickMaterial(bot, 'light')
         if (torch) { try { await placeAt(ctx, step.cells[0], torch, { solid: false }) } catch (err) { if (err instanceof CancelledError) throw err } }
       }
       steps++
       level.progress++
+      ctx.skills?.award('mining', 0.3)
       ctx.setStatus(`mining at y=${levelY}: ${gotTarget}/${wanted} ${target}, tunnel ${level.progress}`)
       ctx.resumeArgs = { target: args.target, count: wanted - gotTarget }
       if (steps % 5 === 0) save()

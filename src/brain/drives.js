@@ -29,7 +29,7 @@ function hasItem (bot, re) {
 }
 
 // Returns a list of { level: 'urgent'|'soon'|'someday', text } sorted by importance.
-function assessNeeds (bot, { memory, lastChatAt } = {}) {
+function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
   const needs = []
   const add = (level, text) => needs.push({ level, text })
   const t = bot.time?.timeOfDay ?? 6000
@@ -69,7 +69,8 @@ function assessNeeds (bot, { memory, lastChatAt } = {}) {
   if (!hasItem(bot, /^torch$/) && pick >= 2) add('someday', 'no torches: coal + sticks make torches for caves and night')
 
   // Home & storage
-  if (!home) add('someday', 'no home base yet: build one with build_base (surface house or underground), or a quick hut for now')
+  const canBase = !skills || skills.tier('building') >= 2
+  if (!home) add('someday', canBase ? 'no home base yet: build one with build_base (surface house or underground), or a quick hut for now' : 'no home yet: build a hut (you are still learning to build; proper bases come later)')
   const unfinished = memory?.unfinishedProjects?.() || []
   if (unfinished.length) add('someday', `your ${unfinished[0].style} base "${unfinished[0].name}" is unfinished${unfinished[0].needs ? ` (needs ${unfinished[0].needs})` : ''}`)
   if (bot.inventory.emptySlotCount() <= 4) add('soon', `inventory almost full (${bot.inventory.emptySlotCount()} free slots): use clean_inventory or deposit`)

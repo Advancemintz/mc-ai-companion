@@ -22,6 +22,10 @@ function startReflexes (bot, executor, config, notify) {
   let lastFleeNotice = 0
   const ignoreUntil = new Map() // entity id -> timestamp; mobs we couldn't reach
   const notIgnored = (e) => (ignoreUntil.get(e.id) || 0) < Date.now()
+  // Combat skill: how fast it reacts, how easily it panics, and which tricks it knows.
+  const combat = () => executor.skills?.params('combat') ||
+    { reactionMs: 0, panicChance: 0, fleeBonus: 0, attackRange: 3, useShield: false, creeperDodge: false }
+  const fleeAt = () => cfg.fleeHealth + (combat().fleeBonus || 0)
 
   bot.on('entityHurt', (entity) => {
     if (entity !== bot.entity) return
@@ -34,14 +38,29 @@ function startReflexes (bot, executor, config, notify) {
 
   async function fight (target) {
     const label = W.entityLabel(target)
+    const skill = combat()
     const weapon = W.bestWeapon(bot)
     if (weapon && bot.heldItem?.name !== weapon.name) {
       try { await bot.equip(weapon, 'hand') } catch {}
     }
+    if (skill.useShield) {
+      const shield = bot.inventory.items().find(i => i.name === 'shield')
+      if (shield && bot.inventory.slots[45]?.name !== 'shield') { try { await bot.equip(shield, 'off-hand') } catch {} }
+    }
+    if (bot.pvp) bot.pvp.attackRange = skill.attackRange || 3
     await bot.pvp.attack(target)
     const started = Date.now()
     while (target.isValid && bot.pvp.target === target && Date.now() - started < 30000) {
-      if (bot.health <= cfg.fleeHealth) break
+      if (bot.health <= fleeAt()) break
+      // Fighter tier and up: back off when a creeper gets too close, then go back in.
+      if (skill.creeperDodge && target.name === 'creeper' && target.position.distanceTo(bot.entity.position) < 2.2) {
+        try { bot.pvp.forceStop ? bot.pvp.forceStop() : await bot.pvp.stop() } catch {}
+        bot.pathfinder.setGoal(new goals.GoalInvert(new goals.GoalFollow(target, 5)), true)
+        await sleep(900)
+        bot.pathfinder.setGoal(null)
+        if (!target.isValid) break
+        await bot.pvp.attack(target)
+      }
       await sleep(200)
     }
     const killed = !target.isValid
@@ -84,7 +103,7 @@ function startReflexes (bot, executor, config, notify) {
 
       // 1. Flee: low health and something dangerous nearby.
       const danger = W.nearestHostile(bot, 10)
-      if (danger && bot.health <= cfg.fleeHealth) {
+      if (danger && bot.health <= fleeAt()) {
         await executor.interrupt('flee', async () => {
           log.reflex(`low health (${Math.round(bot.health)}), fleeing from ${W.entityLabel(danger)}`)
           const label = await flee(danger)
@@ -102,11 +121,25 @@ function startReflexes (bot, executor, config, notify) {
         const close = W.nearestHostile(bot, cfg.defendRadius, e => !W.NEVER_AUTO_ATTACK.has(e.name) && notIgnored(e))
         const target = recentAttacker || close
         if (target && !W.NEVER_AUTO_ATTACK.has(target.name)) {
+          const skill = combat()
+          // A beginner sometimes just panics and runs instead of fighting.
+          if (!recentAttacker && skill.panicChance && Math.random() < skill.panicChance) {
+            await executor.interrupt('panic', async () => {
+              log.reflex(`panicked at the sight of a ${W.entityLabel(target)}`)
+              const label = await flee(target)
+              ignoreUntil.set(target.id, Date.now() + 20000)
+              executor.skills?.award('combat', 1)
+              notify(`[reflex] A ${label} came close and you panicked and ran (you're still new to fighting).`, false)
+            })
+            return
+          }
           await executor.interrupt('self-defense', async () => {
             log.reflex(`defending against ${W.entityLabel(target)}`)
+            if (!recentAttacker && skill.reactionMs) await sleep(skill.reactionMs) // slow to react
             const { killed, label } = await fight(target)
             lastHurtBy = null
             if (!killed) ignoreUntil.set(target.id, Date.now() + 45000)
+            executor.skills?.award('combat', killed ? 6 : 2, killed ? `killed a ${label}` : '')
             notify(`[reflex] A ${label} came at you; ${killed ? 'you killed it' : 'you fought it off'}. Health ${Math.round(bot.health)}/20.`, false)
           })
           return

@@ -41,8 +41,11 @@ function startRailOffers (bot, brain, memory, config) {
       const dist = Math.hypot(base.x - home.x, base.z - home.z)
       if (dist < c.minDistance) continue
 
+      const skills = brain.skills
+      if (skills && skills.tier('railways') === 0) continue // hasn't learned railways yet
       const route = R.planRoute(memory, new Vec3(home.x, home.y, home.z), new Vec3(base.x, base.y, base.z))
       if (route.blocked > 0) { lastCheck.set(name, Date.now()); continue }
+      if (skills && route.cols.length > (skills.params('railways')?.maxLength ?? Infinity)) { lastCheck.set(name, Date.now()); continue }
       const need = R.estimate(route.cols.length)
       const check = R.materialCheck(bot, need)
       if (!check.easy) { lastCheck.set(name, Date.now()); continue }

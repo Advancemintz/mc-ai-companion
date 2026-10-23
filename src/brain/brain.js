@@ -12,8 +12,9 @@ const { chooseActivity } = require('./autopilot')
 const log = require('../util/log')
 
 class Brain {
-  constructor ({ bot, llm, executor, actions, config, memory = null, admin = null }) {
+  constructor ({ bot, llm, executor, actions, config, memory = null, admin = null, skills = null }) {
     this.bot = bot
+    this.skills = skills || executor.skills || null
     this.memory = memory
     this.admin = admin
     this.paused = false
@@ -110,8 +111,10 @@ class Brain {
       this.memory?.addJournal(`Did: ${results.join('; ')}`.slice(0, 200))
       this._selfWake(`[done] ${results.join('; ')}`)
     })
-    this.executor.on('actionFailed', ({ results, skipped }) => {
-      const tail = skipped.length ? ` (skipped: ${skipped.join(', ')})` : ''
+    this.executor.on('actionFailed', ({ name, results, skipped, error }) => {
+      let tail = skipped.length ? ` (skipped: ${skipped.join(', ')})` : ''
+      const skill = require('../skills/registry').ACTION_SKILLS[name]?.skill
+      if (skill && this.skills && !/haven't learned/.test(error || '')) tail += ` (if there's a lesson in this, save it with note_lesson for ${skill})`
       this.memory?.addJournal(`Failed: ${results[results.length - 1]}`.slice(0, 200))
       this._selfWake(`[failed] ${results.join('; ')}${tail}`)
     })
@@ -236,11 +239,12 @@ class Brain {
     const bot = this.bot
     const parts = [perception.describe(bot, { executor: this.executor })]
     try {
-      const needs = assessNeeds(bot, { memory: this.memory, lastChatAt: this.lastChatAt })
+      const needs = assessNeeds(bot, { memory: this.memory, lastChatAt: this.lastChatAt, skills: this.skills })
       parts.push(describeNeeds(needs))
     } catch (err) {
       log.debug('needs failed: ' + err.message)
     }
+    if (this.skills) parts.push(this.skills.describe())
     if (this.memory) {
       const nearby = Object.values(bot.players)
         .filter(p => p.entity && p.username !== bot.username && p.entity.position.distanceTo(bot.entity.position) < 32)
@@ -275,8 +279,8 @@ class Brain {
     const [rawCmd, ...rest] = text.slice(1).trim().split(/\s+/)
     const cmd = (rawCmd || '').toLowerCase()
     const arg = rest.join(' ')
-    const PUBLIC = ['help', 'status', 'goals']
-    const ADMIN = ['stop', 'come', 'follow', 'think', 'reset', 'pause', 'resume', 'autonomy', 'forget', 'wipe', 'op', 'deop', 'quit']
+    const PUBLIC = ['help', 'status', 'goals', 'skills']
+    const ADMIN = ['stop', 'come', 'follow', 'think', 'reset', 'pause', 'resume', 'autonomy', 'forget', 'wipe', 'op', 'deop', 'quit', 'skill', 'resetskills']
     if (!PUBLIC.includes(cmd) && !ADMIN.includes(cmd)) return false // not a command: normal chat
 
     const who = fromConsole ? 'Console' : username
@@ -291,7 +295,40 @@ class Brain {
 
     switch (cmd) {
       case 'help':
-        this.say('Talk to me normally. Anyone: !status, !goals. Operators: !stop, !come, !follow, !think, !pause, !resume, !autonomy on|off, !reset, !forget <player>, !wipe confirm, !op/!deop <name>, !quit')
+        this.say('Talk to me normally. Anyone: !status, !goals, !skills. Operators: !stop, !come, !follow, !think, !pause, !resume, !autonomy on|off, !reset, !forget <player>, !wipe confirm, !op/!deop <name>, !quit, !skill <name|all> tier|cap|xp <n> / natural / nocap / lock / unlock / reset, !resetskills confirm')
+        return true
+      case 'skills':
+        this.say(this.skills ? 'Skills: ' + this.skills.summaryShort() : 'I have no skill system.')
+        return true
+      case 'skill': {
+        if (!this.skills) { this.say('I have no skill system.'); return true }
+        const [which, op, value] = rest.map(x => x.toLowerCase())
+        const ids = which === 'all' ? this.skills.ids() : [which]
+        try {
+          for (const id of ids) {
+            this.skills.state(id) // validates the name
+            if (op === 'tier') this.skills.setFixed(id, Number(value))
+            else if (op === 'natural') this.skills.setFixed(id, null)
+            else if (op === 'cap') this.skills.setCap(id, Number(value))
+            else if (op === 'nocap') this.skills.setCap(id, null)
+            else if (op === 'xp') this.skills.setXp(id, Number(value))
+            else if (op === 'lock' || op === 'unlock') this.skills.setLocked(id, op === 'lock')
+            else if (op === 'reset') this.skills.reset(id)
+            else throw new Error('usage: !skill <name|all> tier <n> | natural | cap <n> | nocap | xp <n> | lock | unlock | reset')
+          }
+          tellBrain(`${who} (a server operator) changed your ${which} skill (${op}${value ? ' ' + value : ''}).`)
+          this.say('Skills: ' + this.skills.summaryShort())
+        } catch (err) {
+          this.say(err.message)
+        }
+        return true
+      }
+      case 'resetskills':
+        if (!this.skills) { this.say('I have no skill system.'); return true }
+        if (arg.toLowerCase() !== 'confirm') { this.say('This puts every skill back to the start. Type !resetskills confirm to do it.'); return true }
+        this.skills.reset()
+        tellBrain(`${who} (a server operator) reset all your skills. You feel like a beginner again.`)
+        this.say('Back to basics. Skills: ' + this.skills.summaryShort())
         return true
       case 'status':
         this.say(`Health ${Math.round(this.bot.health)}/20, food ${this.bot.food}/20.${this.paused ? ' (paused)' : ''} ${this.executor.describe()}`)
@@ -358,6 +395,7 @@ class Brain {
           return true
         }
         this.memory?.wipe()
+        this.skills?.reset()
         this.history = []
         this.events = []
         this.executor.cancelAll('wiped')

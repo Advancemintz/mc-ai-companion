@@ -3,8 +3,24 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (66 automated tests). Version 0.1 has been run on a real server; later versions have not been
+> (85 automated tests: 56 unit + 29 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.7.0: Skills that grow with practice
+
+- **New skill framework** (`src/skills/`): building, mining, combat, railways and a Nether placeholder. Each has tiers defined as data: name, XP needed, prerequisites, description, and params the actions read.
+- **XP from results**, scaled per bot by `affinity` (talents and weak spots), so bots specialise. Failed attempts teach a little. Tiers can need other skills first, and some skills unlock only when their prerequisites are met (railways: building 2 + mining 2).
+- **Existing behaviours converted into tiers**
+  - *Building:* novice huts (small, with missed blocks) → small bases with some details forgotten → every base size, complete → **new two-storey houses** (log band between floors, ladder, upstairs bedroom).
+  - *Mining:* exposed ore only → own mine for coal/copper/iron with short branches → every ore with full veins → tighter, longer branches. Each mine level keeps the layout it was started with.
+  - *Combat:* the reflexes now follow the tier: reaction delay, panic chance, flee threshold, reach, shield use, creeper dodging.
+  - *Railways:* maximum line length per tier.
+- **Universal behaviours stay universal:** movement, eating, safety, memory, tidy placement, protected zones and operator control.
+- **Friendly gating:** an action above the bot's tier fails with what it needs and how to improve, and the model is told to practise the easier version.
+- **Lessons:** the new `note_lesson` action keeps the last three per skill, shown in the bot's state.
+- **Level-ups** are announced to the bot (and it may celebrate). The bot sees all its skills, progress and talents every turn.
+- **Operator commands:** `!skills`, `!skill <name|all> tier|cap|nocap|xp|natural|lock|unlock|reset`, `!resetskills confirm`. `!wipe` resets skills too.
+- **Config:** `bot.skills` sets `mode`, `startTier`/`startTiers`, `caps`, `affinity` and `xpRate`. Use `startTier: 3` to keep the full abilities from 0.6.
 
 ## 0.6.0: Railways
 

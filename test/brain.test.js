@@ -305,3 +305,28 @@ test('autopilot takes over when the model keeps choosing to do nothing', async (
   assert.ok(llm.calls.length >= 2)
   brain.config.bot.autonomous = false
 })
+
+test('skills show up in the state and operators can change them with !skill', async () => {
+  const { SkillBook } = require('../src/skills/skillbook')
+  const { AdminControl } = require('../src/brain/admin')
+  const bot = fakeBot()
+  const memory = new Memory(null)
+  const skills = new SkillBook(memory, { bot: { skills: {} } })
+  const cfgA = { ...config, bot: { ...config.bot, admins: ['Mod'] } }
+  const executor = new Executor(bot, { stop: { description: 's', params: {}, run: async () => 'stopped' } }, { memory })
+  skills.attach(executor)
+  const llm = scriptedLLM([{ say: '', actions: [] }])
+  const brain = new Brain({ bot, llm, executor, actions: executor.actions, config: cfgA, memory, admin: new AdminControl(cfgA, memory), skills })
+  brain.onPlayerChat('Steve', '!skills')
+  assert.match(bot.said.at(-1), /Skills: Building 1 \(Dirt-hut novice\)/)
+  brain.onPlayerChat('Steve', '!skill building tier 3')
+  assert.match(bot.said.at(-1), /Only server operators/)
+  brain.onPlayerChat('Mod', '!skill building tier 3')
+  assert.strictEqual(skills.tier('building'), 3)
+  brain.onPlayerChat('Mod', '!skill all cap 2')
+  assert.strictEqual(skills.tier('building'), 2)
+  brain.onPlayerChat('Steve', 'how good are you at building?')
+  await until(() => llm.calls.length === 1)
+  assert.match(llm.calls[0].messages.at(-1).content, /Your skills:\n- Building tier 2\/4 "Cabin builder"/)
+  assert.match(llm.calls[0].system, /You get better by doing/)
+})

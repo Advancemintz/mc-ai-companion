@@ -39,7 +39,7 @@ PALETTE.shell = ['cobblestone', 'cobbled_deepslate', 'stone', 'dirt', 'andesite'
 
 const STRUCT = new Set(['floor', 'wall', 'roof', 'frame'])
 const FILLERS = new Set(['support', 'shell'])
-const OPTIONAL = new Set(['window', 'door', 'light', 'furniture'])
+const OPTIONAL = new Set(['window', 'door', 'light', 'furniture', 'ladder'])
 const EMPTY = new Set(['air', 'doortop'])
 
 // Natural terrain the builder may dig away (never player-made blocks).
@@ -75,6 +75,7 @@ function acceptable (b, role) {
   if (role === 'window') return /glass/.test(b.name)
   if (role === 'door') return /_door$/.test(b.name)
   if (role === 'light') return /torch|lantern/.test(b.name)
+  if (role === 'ladder') return b.name === 'ladder'
   if (role === 'furniture') return !isAirLike(b) && !T.isLiquid(b) && !NATURAL.test(b.name)
   return true
 }
@@ -98,16 +99,21 @@ const SIZES = {
 
 // Coordinates: [right, up, forward] relative to the origin. The front wall is at forward=0,
 // the house extends forward (away from where the bot stood). up=0 is the ground layer.
-function surfaceBaseCells (size) {
+// storeys=2 adds an upper floor (with a ladder up from the ground floor) and puts the bed upstairs.
+function surfaceBaseCells (size, storeys = 1) {
   const { E, H } = SIZES[size] || SIZES.medium
+  const two = storeys >= 2
   const h = (E - 1) / 2
+  const top = two ? 2 * H + 1 : H // highest wall layer
   const cells = []
   const add = (ri, up, fi, role, extra = {}) => cells.push({ rel: [ri, up, fi], role, ...extra })
   const mid = Math.floor(E / 2)
+  const windowUps = two ? [2, H + 3] : [2]
   const isWindow = (ri, fi) =>
     ((ri === -h || ri === h) && (fi === mid || (E >= 11 && (fi === 2 || fi === E - 3)))) ||
     (fi === E - 1 && (ri === 0 || (E >= 9 && Math.abs(ri) === 2))) ||
     (fi === 0 && Math.abs(ri) === 2)
+  const ladderAt = (ri, fi) => two && ri === -h + 1 && fi === 1
 
   for (let fi = 0; fi < E; fi++) {
     for (let ri = -h; ri <= h; ri++) {
@@ -116,15 +122,18 @@ function surfaceBaseCells (size) {
       const edge = edgeF || edgeR
       const corner = edgeF && edgeR
       add(ri, 0, fi, edge ? (corner ? 'frame' : 'wall') : 'floor')
-      for (let up = 1; up <= H; up++) {
-        if (!edge) add(ri, up, fi, 'air')
-        else if (corner) add(ri, up, fi, 'frame')
+      for (let up = 1; up <= top; up++) {
+        const upperFloor = two && up === H + 1
+        if (!edge) {
+          if (ladderAt(ri, fi) && up <= H + 1) add(ri, up, fi, 'ladder', { item: 'ladder', wall: [-1, 0, 0] })
+          else add(ri, up, fi, upperFloor ? 'floor' : 'air')
+        } else if (corner || upperFloor) add(ri, up, fi, 'frame') // log corners, and a log band between floors
         else if (fi === 0 && ri === 0 && up === 1) add(ri, up, fi, 'door')
         else if (fi === 0 && ri === 0 && up === 2) add(ri, up, fi, 'doortop')
-        else if (up === 2 && isWindow(ri, fi)) add(ri, up, fi, 'window')
+        else if (windowUps.includes(up) && isWindow(ri, fi)) add(ri, up, fi, 'window')
         else add(ri, up, fi, 'wall')
       }
-      add(ri, H + 1, fi, edge ? 'frame' : 'roof') // roof with a log trim around the edge
+      add(ri, top + 1, fi, edge ? 'frame' : 'roof') // roof with a log trim around the edge
       for (let d = 1; d <= 3; d++) add(ri, -d, fi, 'support')
     }
   }
@@ -134,27 +143,28 @@ function surfaceBaseCells (size) {
       if (fi >= 0 && fi < E && ri >= -h && ri <= h) continue
       add(ri, 0, fi, 'support')
       for (let d = 1; d <= 2; d++) add(ri, -d, fi, 'support')
-      for (let up = 1; up <= H + 2; up++) add(ri, up, fi, 'air')
+      for (let up = 1; up <= top + 2; up++) add(ri, up, fi, 'air')
     }
   }
   // Clear anything right above the roof (overhanging leaves etc.).
-  for (let fi = 0; fi < E; fi++) for (let ri = -h; ri <= h; ri++) add(ri, H + 2, fi, 'air')
+  for (let fi = 0; fi < E; fi++) for (let ri = -h; ri <= h; ri++) add(ri, top + 2, fi, 'air')
 
-  // Torches: inside on the side and back walls, outside next to the door.
+  // Torches: inside on the side and back walls, outside next to the door (and upstairs).
   const lights = [[-h + 1, 2, mid], [h - 1, 2, mid], [0, 2, E - 2], [-1, 2, -1], [1, 2, -1]]
-  if (E >= 9) lights.push([-h + 1, 2, 1], [h - 1, 2, 1])
+  if (E >= 9) lights.push([h - 1, 2, 1])
+  if (E >= 9 && !two) lights.push([-h + 1, 2, 1])
+  if (two) lights.push([-h + 1, H + 3, mid], [h - 1, H + 3, mid], [0, H + 3, E - 2])
   for (const [ri, up, fi] of lights) setRole(cells, [ri, up, fi], 'light')
-  // Furniture along the back wall.
   // Furniture along the back wall, facing into the room; the two chests join into a double chest.
   const toFront = [0, 0, -1]
   setRole(cells, [-h + 1, 1, E - 2], 'furniture', { item: 'crafting_table', front: toFront })
   setRole(cells, [-h + 2, 1, E - 2], 'furniture', { item: 'furnace', front: toFront })
   setRole(cells, [h - 1, 1, E - 2], 'furniture', { item: 'chest', front: toFront })
   setRole(cells, [h - 2, 1, E - 2], 'furniture', { item: 'chest', front: toFront })
-  // Bed: head against the right wall, foot pointing into the room.
-  setRole(cells, [h - 2, 1, 2], 'furniture', { item: /_bed$/, front: [-1, 0, 0] })
+  // Bed: head against the right wall, foot pointing into the room (upstairs in a two-storey house).
+  setRole(cells, [h - 2, two ? H + 2 : 1, 2], 'furniture', { item: /_bed$/, front: [-1, 0, 0] })
   const inside = [0, 1, mid]
-  return { cells, inside, entrance: [0, 1, -1], footprint: { E, H } }
+  return { cells, inside, entrance: [0, 1, -1], footprint: { E, H, storeys: two ? 2 : 1 } }
 }
 
 // A covered two-wide staircase down to a room carved out of the rock.
@@ -232,7 +242,7 @@ function toWorld (plan, origin, f, r) {
   const at = ([ri, up, fi]) => origin.plus(r.scaled(ri)).plus(f.scaled(fi)).offset(0, up, 0)
   const dir = ([ri, up, fi]) => r.scaled(ri).plus(f.scaled(fi)).offset(0, up, 0)
   return {
-    cells: plan.cells.map(c => ({ ...c, pos: at(c.rel), ...(c.front ? { frontVec: dir(c.front) } : {}) })),
+    cells: plan.cells.map(c => ({ ...c, pos: at(c.rel), ...(c.front ? { frontVec: dir(c.front) } : {}), ...(c.wall ? { wallVec: dir(c.wall) } : {}) })),
     inside: at(plan.inside),
     entrance: at(plan.entrance),
     at
@@ -358,6 +368,7 @@ function groupOf (role) {
   if (role === 'window') return 'glass (optional)'
   if (role === 'door') return 'doors (optional)'
   if (role === 'light') return 'torches (optional)'
+  if (role === 'ladder') return 'ladders (7 sticks make 3)'
   return null
 }
 
@@ -458,6 +469,8 @@ async function placeCell (ctx, cell, stats) {
       }
       return 'blocked'
     }
+  } else if (cell.role === 'ladder') {
+    mat = bot.inventory.items().find(i => i.name === 'ladder')?.name
   } else {
     mat = pickMaterial(bot, cell.role)
     if (!mat && cell.role === 'frame') mat = pickMaterial(bot, 'wall')
@@ -471,7 +484,7 @@ async function placeCell (ctx, cell, stats) {
   const solid = STRUCT.has(cell.role) || FILLERS.has(cell.role) || cell.role === 'window'
   let res
   try {
-    res = await placeAt(ctx, cell.pos, mat, { solid: solid && !/pane/.test(mat) })
+    res = await placeAt(ctx, cell.pos, mat, { solid: solid && !/pane/.test(mat), ...(cell.wallVec ? { refDirs: [cell.wallVec] } : {}) })
   } catch (err) {
     if (err instanceof CancelledError) throw err
     if (/ran out/.test(err.message)) return 'missing'
@@ -482,7 +495,8 @@ async function placeCell (ctx, cell, stats) {
 }
 
 // Runs (or resumes) a blueprint. Returns stats; never throws for missing materials.
-async function runBlueprint (ctx, plan, { onStatus = () => {} } = {}) {
+// detailSkip: chance (0-1) that a less skilled builder forgets a window or torch.
+async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0 } = {}) {
   const { bot } = ctx
   const stats = { dug: 0, placed: 0, sealed: 0, missing: {}, warnings: new Set(), flooded: new Set() }
   const cells = plan.cells
@@ -547,11 +561,12 @@ async function runBlueprint (ctx, plan, { onStatus = () => {} } = {}) {
     }
 
     // 4. Details: windows, lights, doors, furniture.
-    const order = { window: 0, light: 1, furniture: 2, door: 3 }
+    const order = { ladder: 0, window: 1, light: 2, furniture: 3, door: 4 }
     const details = cells.filter(c => OPTIONAL.has(c.role) && !acceptable(bot.blockAt(c.pos), c.role))
-      .sort((a, b) => order[a.role] - order[b.role])
+      .sort((a, b) => order[a.role] - order[b.role] || a.pos.y - b.pos.y)
     for (const c of details) {
       ctx.check()
+      if (detailSkip && (c.role === 'window' || c.role === 'light') && Math.random() < detailSkip) continue
       onStatus(`adding ${c.role}s`)
       await placeCell(ctx, c, stats)
     }

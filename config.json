@@ -21,6 +21,14 @@
     "autopilot": true,
     "stuckSeconds": 40,
     "railOffers": { "enabled": true, "intervalDays": 7, "minDistance": 40 },
+    "skills": {
+      "mode": "natural",
+      "startTier": 1,
+      "startTiers": {},
+      "caps": {},
+      "affinity": { "building": 1.0, "mining": 1.0, "combat": 1.0, "railways": 1.0 },
+      "xpRate": 1
+    },
     "memoryName": "",
     "maxChainedSteps": 10,
     "reconnect": true,

@@ -25,6 +25,9 @@ const DEFAULTS = {
     autopilot: true, // do something sensible when the model keeps choosing to idle
     stuckSeconds: 40, // give up on an action that makes no progress for this long
     railOffers: { enabled: true, intervalDays: 7, minDistance: 40 }, // offer players railways to their bases
+    // Skills grow with practice. mode "natural" = earn XP; "fixed" = stay at startTier(s).
+    // affinity > 1 means a natural talent (faster XP), < 1 a weak spot. xpRate scales everything.
+    skills: { mode: 'natural', startTier: 1, startTiers: {}, caps: {}, affinity: {}, xpRate: 1 },
     memoryDir: 'memory',
     memoryName: '',
     maxChainedSteps: 10,

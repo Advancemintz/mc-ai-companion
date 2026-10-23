@@ -16,7 +16,7 @@ let cache = { at: 0, memory: null, zones: [] }
 function projectBox (proj) {
   const origin = new Vec3(proj.origin.x, proj.origin.y, proj.origin.z)
   const f = new Vec3(proj.f.x, 0, proj.f.z)
-  const layout = proj.style === 'surface' ? B.surfaceBaseCells(proj.size)
+  const layout = proj.style === 'surface' ? B.surfaceBaseCells(proj.size, proj.storeys || 1)
     : proj.style === 'underground' ? B.undergroundBaseCells(proj.size, proj.depth)
       : null
   if (!layout) return null

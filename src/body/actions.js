@@ -354,6 +354,7 @@ actions.collect_block = {
       try {
         await ctx.race(bot.collectBlock.collect(target, { ignoreNoPath: true }), 60000)
         mined++
+        if (undergroundMaterial) ctx.skills?.award('mining', /_ore$/.test(target.name) ? 2 : 0.3)
         failures = 0
         ctx.setStatus(`${mined}/${wanted}`)
         ctx.resumeArgs = { block, count: wanted - mined }
@@ -409,6 +410,7 @@ actions.attack = {
         throw new Error(`${W.entityLabel(entity)} got away`)
       }
       killed++
+      ctx.skills?.award('combat', W.isHostile(entity) ? 8 : entity.type === 'player' ? 10 : 2, `killed a ${W.entityLabel(entity)}`)
       ctx.resumeArgs = { target, count: wanted - killed }
       await pickupNearbyItems(ctx, 5)
     }
@@ -581,6 +583,14 @@ actions.build = {
   run: async (ctx, args) => {
     const { bot } = ctx
     const kind = String(args.structure || '').toLowerCase()
+    // Building skill: beginners only manage small huts and miss the odd block.
+    const skill = ctx.skills?.params('building') || { missChance: 0, hutMaxSize: 7 }
+    const isHut = ['hut', 'house', 'shelter', 'cabin'].includes(kind)
+    let shrunk = false
+    if (isHut && num(args.size ?? args.width ?? args.length, 3) > skill.hutMaxSize) {
+      args = { ...args, size: skill.hutMaxSize, width: undefined, length: undefined }
+      shrunk = true
+    }
     const offsets = structureOffsets(kind, args)
     if (!offsets) throw new Error(`I don't know how to build "${args.structure}". Options: hut, wall, tower, platform, floor`)
     const groundLevel = ['floor', 'bridge'].includes(kind)
@@ -678,10 +688,12 @@ actions.build = {
         try { await placeOne(p) } catch (err) { if (err instanceof CancelledError || /ran out/.test(err.message)) throw err }
       }
       let pending = todo.slice().sort((a, b) => a.y - b.y || a.distanceTo(bot.entity.position) - b.distanceTo(bot.entity.position))
+      let missed = 0
       for (let pass = 0; pass < 12 && pending.length; pass++) {
         const next = []
         for (const pos of pending) {
           ctx.check()
+          if (pass === 0 && skill.missChance && Math.random() < skill.missChance) { missed++; continue } // still learning
           let res
           try {
             res = await placeOne(pos)
@@ -699,7 +711,10 @@ actions.build = {
       if (left && !placed) throw new Error(`couldn't place any blocks for the ${kind} at ${fmtPos(origin)} (no support or something in the way)`)
       const usedText = Object.entries(used).map(([n, c]) => `${c} ${n}`).join(', ') || 'no new blocks'
       let result = `built ${kind} at ${fmtPos(origin)} using ${usedText}` + (left ? ` (${left} spots couldn't be filled)` : '')
-      if (['hut', 'house', 'shelter', 'cabin'].includes(kind)) {
+      if (missed) result += ` (I missed ${missed} spots - still learning; build it again to patch the gaps)`
+      if (shrunk) result += ` (kept it small: size ${skill.hutMaxSize} is the biggest I can manage so far)`
+      ctx.skills?.award('building', Math.min(25, placed * 0.4) + (left || missed ? 0 : 5), `built a ${kind}`)
+      if (isHut) {
         const S = clamp(num(args.size ?? args.width ?? args.length, 3), 2, 7)
         const inside = at(0, 0, 1 + Math.floor(S / 2))
         result += `; the doorway faces ${facingName(f.scaled(-1))}, inside is ${fmtPos(inside)}`
@@ -717,7 +732,7 @@ actions.build = {
 
 actions.build_base = {
   description: 'Build a proper base (a big project, may take several minutes; calling it again continues an unfinished one). style "surface": finds the flattest nearby area, clears trees and levels it, then builds a log-framed house with floor, windows, door, roof, torches and any crafting_table/furnace/chest/bed you carry. Sizes: small (7x7, ~150 blocks), medium (9x9, ~260), large (11x11, ~370), mostly planks/cobblestone plus ~20-30 logs. style "underground": digs a covered 2-wide staircase with doors down to a carved room (size small/medium/large), seals caves/water/lava, adds torches and furniture; needs a pickaxe and produces lots of cobblestone. Use plan_only first to check materials.',
-  params: { style: 'surface | underground', size: 'small | medium | large (default medium)', depth: 'underground: how deep, default 10', name: 'project name (default "base")', plan_only: 'true = only choose the spot and list needed materials', restart: 'true = abandon the old one and start a new one here' },
+  params: { style: 'surface | underground', size: 'small | medium | large (default: the biggest you can manage)', storeys: 'surface only: 1 or 2 (two storeys needs building tier 4)', depth: 'underground: how deep, default 10', name: 'project name (default "base")', plan_only: 'true = only choose the spot and list needed materials', restart: 'true = abandon the old one and start a new one here' },
   timeoutSeconds: 2400,
   run: async (ctx, args) => {
     const { bot } = ctx
@@ -732,7 +747,16 @@ actions.build_base = {
 
     if (!proj) {
       const style = /under/i.test(String(args.style || '')) ? 'underground' : 'surface'
-      const size = B.SIZES[String(args.size || '').toLowerCase()] ? String(args.size).toLowerCase() : 'medium'
+      // Building skill decides which bases the bot knows how to make.
+      const skill = ctx.skills?.params('building') || { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 2 }
+      if (!skill.bases.includes(style)) ctx.skills.require('building', 2, `${style} bases`)
+      const asked = String(args.size || '').toLowerCase()
+      let size = B.SIZES[asked] ? asked : skill.baseSizes[skill.baseSizes.length - 1] || 'small'
+      if (!skill.baseSizes.includes(size)) {
+        throw new Error(`a ${size} base is beyond me for now; I can manage: ${skill.baseSizes.join(', ')}. (Building more bases will improve that.)`)
+      }
+      const storeys = style === 'surface' && Math.round(num(args.storeys, 1)) >= 2 ? 2 : 1
+      if (storeys > skill.storeys) ctx.skills.require('building', 4, 'two-storey houses')
       const depth = clamp(Math.round(num(args.depth, 10)), 6, 24)
       let site
       if (style === 'surface') {
@@ -749,7 +773,7 @@ actions.build_base = {
         if (site.lava > 8) throw new Error('there is a lot of lava down there in every direction. Move somewhere else first')
       }
       proj = {
-        style, size, depth,
+        style, size, depth, storeys,
         origin: { x: site.origin.x, y: site.origin.y, z: site.origin.z },
         f: { x: site.f.x, z: site.f.z },
         status: 'in progress',
@@ -763,10 +787,11 @@ actions.build_base = {
     const origin = new Vec3(proj.origin.x, proj.origin.y, proj.origin.z)
     const f = new Vec3(proj.f.x, 0, proj.f.z)
     const r = B.rightOf(f)
-    const layout = proj.style === 'surface' ? B.surfaceBaseCells(proj.size) : B.undergroundBaseCells(proj.size, proj.depth)
+    const layout = proj.style === 'surface' ? B.surfaceBaseCells(proj.size, proj.storeys || 1) : B.undergroundBaseCells(proj.size, proj.depth)
+    const detailSkip = ctx.skills?.params('building')?.detailSkip || 0
     const plan = B.toWorld(layout, origin, f, r)
     if (proj.style === 'underground') plan.digOrder = (a, b) => a.rel[2] - b.rel[2]
-    const label = `${proj.size} ${proj.style} base "${name}" at ${fmtPos(origin)}`
+    const label = `${(proj.storeys || 1) > 1 ? "two-storey " : ""}${proj.size} ${proj.style} base "${name}" at ${fmtPos(origin)}`
 
     const describeNeeds = (missing) => Object.entries(missing).map(([g, n]) => `${n} ${g}`).join(', ')
     if (truthy(args.plan_only)) {
@@ -779,7 +804,7 @@ actions.build_base = {
         'Call build_base again without plan_only to start (it digs and levels first, so you can start before you have everything).'
     }
 
-    const stats = await B.runBlueprint(ctx, plan, { onStatus: (t) => ctx.setStatus(`${name}: ${t}`) })
+    const stats = await B.runBlueprint(ctx, plan, { onStatus: (t) => ctx.setStatus(`${name}: ${t}`), detailSkip })
     const after = B.survey(bot, plan.cells)
     const essential = Object.entries(after.missing).filter(([g]) => !/optional/.test(g))
     const essentialCount = essential.reduce((n, [, c]) => n + c, 0)
@@ -790,12 +815,15 @@ actions.build_base = {
     const warn = stats.warnings.size ? ` Notes: ${[...stats.warnings].join('; ')}.` : ''
 
     if (essentialCount > 4) {
+      ctx.skills?.award('building', stats.placed * 0.1, 'worked on a base')
       if (mem) mem.saveProject(name, proj)
       return `worked on the ${label}: ${work}. Now ${after.progress}% done. Still need: ${proj.needs}. Gather those, then call build_base (name "${name}") again to continue.${warn}`
     }
 
     proj.status = 'done'
     proj.needs = ''
+    const baseXp = { small: 40, medium: 70, large: 100 }[proj.size] * ((proj.storeys || 1) > 1 ? 1.5 : 1) + stats.placed * 0.05
+    ctx.skills?.award('building', baseXp, `finished a ${proj.size} ${proj.style} base`)
     let result = `finished the ${label}: ${work}.`
     if (mem) {
       mem.saveProject(name, proj)
@@ -1141,6 +1169,17 @@ actions.clean_inventory = {
   }
 }
 
+actions.note_lesson = {
+  description: 'Write down a one-line lesson for one of your skills after something went wrong (or right), so you do better next time. Example: skill building, lesson "gather 80 blocks before starting a medium base".',
+  params: { skill: 'building | mining | combat | railways | nether', lesson: 'one short sentence' },
+  instant: true,
+  run: async (ctx, { skill, lesson }) => {
+    if (!ctx.skills) throw new Error('skills are not available')
+    ctx.skills.addLesson(String(skill || '').toLowerCase(), lesson)
+    return `noted for ${skill}: ${lesson}`
+  }
+}
+
 // ---- railways
 
 const R = require('./railway')
@@ -1207,6 +1246,8 @@ actions.build_railway = {
       const route = R.planRoute(mem, start.pos, dest.pos)
       if (route.cols.length < 6) throw new Error('that is too close for a railway; just walk!')
       if (route.blocked > 0) throw new Error('every straight route there crosses someone\'s base. Pick a different destination or ask an operator to unprotect the area')
+      const maxLength = ctx.skills?.params('railways')?.maxLength ?? Infinity
+      if (route.cols.length > maxLength) throw new Error(`that line would be ${route.cols.length} blocks; so far I can only manage railways up to ${maxLength} blocks. (Building shorter lines first will improve that.)`)
       const startInfo = T.columnInfo(bot, route.start.x, route.start.z, Math.floor(start.pos.y), 20)
       proj = {
         style: 'rail', toName: dest.label, owner: dest.owner || '',
@@ -1220,6 +1261,7 @@ actions.build_railway = {
     const resumeAt = proj.cols[Math.min(proj.built, proj.cols.length - 1)]
     await goto(ctx, new goals.GoalNearXZ(resumeAt.x, resumeAt.z, 6), 300000)
     const res = await R.buildSection(ctx, proj, { onStatus: (t) => ctx.setStatus(t), save })
+    ctx.skills?.award('railways', res.laid * 0.5, 'laid track')
     const total = proj.cols.length
     if (res.done) {
       proj.status = 'done'
@@ -1231,6 +1273,7 @@ actions.build_railway = {
         mem.setPlace(`${name}_station_b`, new Vec3(last.x, last.y, last.z), bot.game?.dimension, `railway station (${dest.label} end)`)
         mem.addJournal(`Finished a ${total}-block railway to ${dest.label}.`)
       }
+      ctx.skills?.award('railways', 30, `finished a railway to ${dest.label}`)
       return `finished the railway to ${dest.label}: ${total} blocks. Stations saved as ${name}_station_a / _b (put a minecart on the end rail, get in, press the button).`
     }
     const missingText = Object.entries(res.missing).map(([k, n]) => `${n} ${k}`).join(', ')

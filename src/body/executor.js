@@ -52,9 +52,10 @@ function sleep (ms, token) {
 }
 
 class Executor extends EventEmitter {
-  constructor (bot, actions, { memory = null, stuckSeconds = 40 } = {}) {
+  constructor (bot, actions, { memory = null, stuckSeconds = 40, skills = null } = {}) {
     super()
     this.bot = bot
+    this.skills = skills // the bot's skill book (tiers change how some actions behave)
     this.stuckMs = stuckSeconds * 1000
     this._activity = 0 // bumped by digging/placing, used by the stuck watchdog
     const bump = () => { this._activity++ }
@@ -224,6 +225,7 @@ class Executor extends EventEmitter {
       const ctx = {
         bot: this.bot,
         memory: this.memory,
+        skills: this.skills,
         token,
         status: '',
         resumeArgs: null, // actions set this so an interrupted step can continue where it left off
@@ -241,6 +243,7 @@ class Executor extends EventEmitter {
       let error = null
       try {
         const timeoutMs = def.persistent ? 0 : (def.timeoutSeconds || 300) * 1000
+        this.skills?.gate(step.name, step.args) // "I haven't learned that yet"
         result = await raceCancel(def.run(ctx, step.args), token, timeoutMs)
       } catch (err) {
         error = err

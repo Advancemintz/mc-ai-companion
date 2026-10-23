@@ -33,7 +33,7 @@ const REPLACEABLE = new Set([
 // Place one item at pos, walking into range if needed.
 // solid=false is for torches, doors, beds, chests: anything that isn't a plain full block.
 // Returns 'placed' | 'exists' | 'no-support' | 'blocked'.
-async function placeAt (ctx, pos, itemName, { solid = true } = {}) {
+async function placeAt (ctx, pos, itemName, { solid = true, refDirs = null } = {}) {
   const { bot } = ctx
   const cur = bot.blockAt(pos)
   if (!cur) throw new Error('that location is not loaded')
@@ -46,7 +46,8 @@ async function placeAt (ctx, pos, itemName, { solid = true } = {}) {
     await ctx.race(bot.dig(cur), 10000)
   }
 
-  const dirs = [new Vec3(0, -1, 0), new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1), new Vec3(0, 1, 0)]
+  // refDirs: which neighbour(s) to attach to (ladders and wall torches need a wall, not the floor).
+  const dirs = refDirs || [new Vec3(0, -1, 0), new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1), new Vec3(0, 1, 0)]
   let ref = null
   for (const d of dirs) {
     const b = bot.blockAt(pos.plus(d))
