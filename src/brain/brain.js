@@ -151,7 +151,7 @@ class Brain {
       // The model keeps choosing to do nothing (or can't be reached): let the body do something normal.
       const llmDown = Date.now() - this.lastErrorNotice < 120000
       if (this.config.bot.autopilot !== false && (this.idleStreak >= 2 || llmDown)) {
-        const pick = chooseActivity(this.bot, { memory: this.memory, skills: this.skills })
+        const pick = chooseActivity(this.bot, { memory: this.memory, skills: this.skills, team: this.team })
         if (pick) {
           this.idleStreak = 0
           this.lastThinkAt = Date.now()
@@ -270,6 +270,9 @@ class Brain {
           log.debug('social describe failed: ' + err.message)
         }
       }
+    }
+    if (this.team) {
+      try { parts.push(...this.team.stateLines()) } catch (err) { log.debug('team state failed: ' + err.message) }
     }
     return parts.join('\n')
   }

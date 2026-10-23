@@ -14,7 +14,7 @@ function countMatching (bot, re) {
   return bot.inventory.items().filter(i => re.test(i.name)).reduce((n, i) => n + i.count, 0)
 }
 
-function chooseActivity (bot, { memory, skills = null } = {}) {
+function chooseActivity (bot, { memory, skills = null, team = null } = {}) {
   const t = bot.time?.timeOfDay ?? 6000
   const night = t >= 12500 && t < 23300
   const pos = bot.entity.position
@@ -27,6 +27,16 @@ function chooseActivity (bot, { memory, skills = null } = {}) {
   const near = (names, r) => {
     const ids = names.map(n => bot.registry.blocksByName[n]?.id).filter(x => x !== undefined)
     return ids.length ? bot.findBlock({ matching: ids, maxDistance: r }) : null
+  }
+  // Teamwork comes first: a friend in trouble, then materials a teammate is waiting for.
+  if (team?.on?.()) {
+    const help = team.latestHelp(60000)
+    if (help && bot.health >= 10 && help.pos && Math.hypot(help.pos[0] - pos.x, help.pos[2] - pos.z) <= (team.cfg().helpRadius || 96)) {
+      return { plan: [{ name: 'help_fight', args: { player: help.from } }], why: `${help.from} called for help` }
+    }
+    const { NEEDS } = require('./team')
+    const job = team.activePacts().find(p => team.roleOf(p) === 'gatherer' && p.needs && Object.entries(p.needs).some(([k, n]) => n > 0 && countMatching(bot, NEEDS[k].re) >= Math.min(n, 16)))
+    if (job && Date.now() - (bot._lastDeliverTry || 0) > 5 * 60000) { bot._lastDeliverTry = Date.now(); return { plan: [{ name: 'team', args: { mode: 'deliver', id: job.id } }], why: 'taking materials to your teammate\'s build' } }
   }
   // 0. Night at home: go to bed, like everyone else.
   if (night && homeDist <= 16) {

@@ -149,7 +149,8 @@ class Social {
     const empty = { feelings: {}, claims: [], ledger: {}, chestOpens: [], sightings: [], thefts: [], myThefts: [], sabotage: [], protected: [], modelChanges: {}, overrides: {} }
     if (!this.memory) { this._local = this._local || empty; return this._local }
     const d = this.memory.data
-    d.social = { ...empty, ...(d.social || {}) }
+    d.social = d.social || {}
+    for (const [k, v] of Object.entries(empty)) if (d.social[k] === undefined) d.social[k] = v // fill in place: callers keep a live reference
     return d.social
   }
 

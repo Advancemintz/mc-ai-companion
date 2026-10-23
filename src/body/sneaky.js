@@ -72,6 +72,10 @@ function isMine (ctx, block) {
 // Before using one of your own chests: did anything go missing since last time?
 function auditOnOpen (ctx, block, container) {
   if (!ctx.social || !isMine(ctx, block)) return null
+  if (Z.coOwnersAt(ctx.memory, block.position).length) { // a shared chest: others take from it too
+    ctx.social.snapshotChest(chestKey(ctx.bot, block), block.position, containerCounts(container))
+    return null
+  }
   return ctx.social.auditChest(chestKey(ctx.bot, block), block.position, containerCounts(container))
 }
 

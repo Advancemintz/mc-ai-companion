@@ -3,8 +3,20 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (206 automated tests: 100 unit + 106 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (221 automated tests: 110 unit + 111 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.14.0: Teamwork between bots
+
+- **Shared plans:** bots tell each other their goals every few minutes and when they change; STATE shows other bots' plans, and a bot is told when someone's goal fits its own (the same kind, or mining that feeds a build).
+- **Pacts** with the new `team` action: `build_together`, `you_gather`, `i_gather`, `hunt` or `together`. Offers are accepted or declined in character; a bot turns down someone it dislikes by itself.
+- **Gatherer and builder:** when a shared build pauses, the gatherer is told exactly what's missing and where the depot chest is; `team deliver` drops it off (placing the chest if needed); the builder's next `build_base` picks it up. Finishing together and delivering raise feelings; leaving a pact lowers them. Two builders can work on one base at once.
+- **Help in a fight:** a bot in trouble calls teammates and friends nearby; new `help_fight` runs over and clears the monsters around them. The autopilot answers fresh calls and makes deliveries.
+- **Shared bases** (`team share_base`, good friends only): co-owned chests and beds, no snooping, griefing or theft alarms between co-owners, withdrawals announced, and a homeless friend moves in. Teammates building a base get the same allowance.
+- **Two ways to talk:** behind the scenes through the setup page for bots started there, in-game whispers (split into parts when long, queued against spam) otherwise.
+- New `team` settings: `minFeeling`, `shareBaseMinFeeling`, `helpMinFeeling`, `helpRadius`, `goalShareMinutes`, `whispers`.
+- Fix: the social memory could lose a change made just before another lookup.
+- Tests: 15 new (10 unit, 5 simulated-world).
 
 ## 0.13.0: Looking after animals
 

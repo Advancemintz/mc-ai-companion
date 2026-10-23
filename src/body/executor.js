@@ -52,7 +52,7 @@ function sleep (ms, token) {
 }
 
 class Executor extends EventEmitter {
-  constructor (bot, actions, { memory = null, stuckSeconds = 40, skills = null, social = null, config = null } = {}) {
+  constructor (bot, actions, { memory = null, stuckSeconds = 40, skills = null, social = null, config = null, team = null } = {}) {
     super()
     this.bot = bot
     this.skills = skills // the bot's skill book (tiers change how some actions behave)
@@ -63,6 +63,7 @@ class Executor extends EventEmitter {
     bot.on?.('blockPlaced', bump)
     bot.on?.('playerCollect', bump)
     this.actions = actions // map name -> definition
+    this.team = team // teamwork with other bots (src/brain/team.js), handed to actions as ctx.team
     this.memory = memory // long-term memory, handed to actions as ctx.memory
     this.social = social // feelings, ownership, thefts (src/brain/social.js), handed to actions as ctx.social
     this.config = config // the live config, handed to actions as ctx.config
@@ -232,6 +233,7 @@ class Executor extends EventEmitter {
         memory: this.memory,
         skills: this.skills,
         social: this.social,
+        team: this.team,
         config: this.config,
         token,
         status: '',

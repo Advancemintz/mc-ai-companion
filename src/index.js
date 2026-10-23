@@ -25,6 +25,8 @@ const { startRailOffers } = require('./brain/railOffers')
 const { SkillBook } = require('./skills/skillbook')
 const { Social } = require('./brain/social')
 const { startSocialSenses } = require('./brain/socialSenses')
+const { Team, startTeam } = require('./brain/team')
+const { createLink } = require('./brain/teamLink')
 const { AdminControl, parseSayCommand } = require('./brain/admin')
 const log = require('./util/log')
 
@@ -51,6 +53,9 @@ const admin = new AdminControl(config, memory)
 const skills = new SkillBook(memory, config)
 log.info(`Skills: ${skills.summaryShort()}`)
 const social = new Social(memory, config, { botName: config.minecraft.username })
+const team = new Team({ memory, social, config, botName: config.minecraft.username })
+let teamLink = null
+let teamSenses = null
 
 let current = null // { bot, brain, executor }
 let reconnectDelay = 5000
@@ -104,7 +109,10 @@ function createBot () {
     bot.pvp.attackRange = 3
 
     social.botName = bot.username // the real in-game name (a Microsoft login may differ from the config)
-    const executor = new Executor(bot, actions, { memory, stuckSeconds: config.bot.stuckSeconds, social, config })
+    team.botName = bot.username
+    teamLink = createLink({ bot, team, config, log })
+    teamLink.hello()
+    const executor = new Executor(bot, actions, { memory, stuckSeconds: config.bot.stuckSeconds, social, config, team })
     skills.attach(executor)
     const brain = new Brain({ bot, llm, executor, actions, config, memory, admin, skills, social })
     skills.removeAllListeners('levelUp')
@@ -120,6 +128,9 @@ function createBot () {
     attachMannerisms(bot, executor, brain, config)
     startRailOffers(bot, brain, memory, config)
     startSocialSenses(bot, brain, social, config)
+    brain.team = team
+    teamSenses?.stop()
+    teamSenses = startTeam(bot, team, { memory, brainNotify: (text, wake) => brain.notify(text, wake && config.bot.autonomous !== false) })
     current = { bot, brain, executor }
 
     bot.on('chat', (username, message) => {
@@ -136,6 +147,7 @@ function createBot () {
     })
     bot.on('whisper', (username, message) => {
       if (username === bot.username) return
+      if (teamLink?.onWhisper(username, message)) { log.debug(`team message from ${username}`); return }
       log.chat(`<${username} whispers> ${message}`)
       brain.onPlayerChat(username, message, { whisper: true })
     })
@@ -212,6 +224,7 @@ function startManagerLink () {
   process.on('message', (m) => {
     if (!m || typeof m !== 'object') return
     if (m.type === 'quit') return shutdown()
+    if (m.type === 'team' || m.type === 'team-roster') return teamLink?.onIpc(m)
     if (m.type === 'command') {
       if (!current) return log.warn('Not connected yet; command ignored.')
       current.brain.onPlayerChat('Console', String(m.text || ''), { fromConsole: true })

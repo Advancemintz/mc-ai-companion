@@ -6,7 +6,7 @@
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (206 automated tests: 100 unit + 106 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (221 automated tests: 110 unit + 111 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -229,6 +229,7 @@ The terminal window counts as an operator too.
 | `build_base` | a real base in one of several designs, as a resumable project (see below) |
 | `upgrade_base` | improve the base you have: storage room, bunker, second storey, enchanting room (whichever fit the design) |
 | `farm`, `breed_animals`, `build_pen`, `tend_animals` | a crop farm near home that it tills, plants, harvests and replants (plus a melon/pumpkin patch and sugar cane for master farmers); breeding animals; fenced pens it lures or leads animals into; ranch rounds of its pens (see below) |
+| `team`, `help_fight` | teamwork with other bots: plans, offers, depot deliveries, shared bases; running to help a friend in a fight |
 | `tame`, `pet` | tame a wolf, cat or parrot and name it; tell pets to sit or follow, heal them, or take them home and sit them there |
 | `build_portal`, `nether_trip`, `make_netherite` | build and light a Nether portal; a careful round trip to gather one thing, tunnel for ancient debris or raid a bastion; turn debris into netherite gear (see below) |
 | `mine` | a proper mine: covered entrance away from bases, stairs to the right depth for the ore, branch or strip mining (see below) |
@@ -328,6 +329,32 @@ The model can also nudge feelings with `adjust_feelings` for things the game can
 | `sabotage.enabled` / `feelingAtMost` | true / -80 | the `sabotage` action, and the deep-hatred threshold |
 | `sabotage.maxBlocks` / `cooldownMinutes` / `kinds` | 6 / 60 / torches, crops, doorway | how much, how often, and which kinds are allowed |
 | `protected` | [] | players never stolen from or sabotaged (operators can add more with `!protect`) |
+
+## Teamwork between bots
+
+Bots tell each other what they're working on and can team up when their plans fit. Nothing is forced: each bot decides in character, and feelings set what's on the table.
+
+**Sharing plans.** Every few minutes (and whenever its goals change) a bot tells the other bots online what its active goals are. STATE shows "Other bots' plans", and when someone's goal fits one of yours (both building, or one mining while the other builds) the bot gets an idea: "Bob is working on "mine lots of iron", which fits your goal "build a castle". You could team up...".
+
+**Pacts** (`team` with `mode: propose`, `with`, `plan`, `goal`, and `project` for building plans):
+
+| plan | who does what |
+|---|---|
+| `build_together` | both build the proposer's base. The builder compares the blueprint with the world, so two bots can work on one base without getting in each other's way. |
+| `you_gather` | the proposer builds; the other brings materials to a depot chest beside the site |
+| `i_gather` | the proposer gathers for the other bot's base |
+| `hunt` | fight side by side: the fighter stays near the leader |
+| `together` | any shared goal; they coordinate by talking |
+
+The other bot answers with `team` `accept` or `decline` (id). Once in a pact, roles show in STATE. A builder just keeps running `build_base`: when the build pauses for materials, the gatherer is told exactly what's missing (for example "40 cobblestone or planks, 8 logs, 4 glass") and where the depot is; `team` `deliver` takes what it carries there (putting a chest down if there's none yet), and the next `build_base` picks the deliveries up. When the base is finished, both are told and both feel warmer about each other. Walking out of a pact (`leave`) costs some goodwill. The autopilot delivers when the gatherer carries enough of what's needed.
+
+**Help in a fight.** When a bot's health drops to 10 or less with monsters close by, it calls for help (or asks with `team` `help`). Teammates and friends within `helpRadius` get "HELP WANTED" in STATE, and `help_fight` runs over and fights what's around the friend (not monsters elsewhere). The autopilot answers a fresh call too. Being rescued is remembered fondly.
+
+**Shared bases.** A good friend (feeling 40 or more on both sides) can be offered a share of a base (`team` `share_base`, `with`, `project`). Once accepted, it's co-owned: both use its chests and beds, opening its chests or digging there doesn't count as snooping or griefing, items the other owner takes aren't counted as theft, and each bot tells the other when it takes something. A bot without a home moves in. Teammates helping to build a base get the same allowance while they work.
+
+**Who will work with whom:** `minFeeling` (default -10: anyone not disliked) for pacts, `shareBaseMinFeeling` (40) for shared bases, `helpMinFeeling` (0) for answering calls for help. A bot that dislikes the proposer turns the offer down by itself.
+
+**How the messages travel.** Bots started together from the setup page pass team messages behind the scenes through the page. Bots that aren't (or a bot on another PC) use in-game whispers: `/msg Bob want to team up? ... #T{...}`, a readable line plus a small tagged payload, split into numbered parts when it's long and queued so nobody gets kicked for spam. The server must allow `/msg` for that. Team whispers aren't treated as chat.
 
 ### Bases
 
@@ -532,6 +559,7 @@ When a reflex interrupts a task, the task resumes afterwards with what's left. F
 | `bot.showThoughts` | true | print the model's reasoning in the terminal |
 | `bot.mannerisms` | on, level 0.5 | human touches: pauses, gestures, fidgets, admiring builds (`enabled`, `level` 0-1) |
 | `reflexes.*` | | turn reflexes on/off (`hazards`, `autoEat`, `selfDefense`, `autoArmor`), `defendRadius`, `fleeHealth` |
+| `team.*` | `enabled: true, minFeeling: -10, shareBaseMinFeeling: 40, helpMinFeeling: 0, helpRadius: 96, goalShareMinutes: 5, whispers: true` | teamwork between bots (see *Teamwork between bots*) |
 | `ranch.*` | `herdSize: 8, keepAdults: 2, cull: true, milk: true, shear: true` | animal pens: how many each may hold, the fewest adults to keep, and whether a skilled farmer may cull spare adults for meat |
 | `social.*` | see *Feelings, property and mischief* | feelings, ownership, theft detection, stealing, sabotage, protected players |
 | `llm.temperature` | 0.6 | creativity (ignored by OpenAI reasoning models unless set per provider) |
@@ -596,6 +624,9 @@ src/body/combat.js    the fighting engine: priorities, timed swings, crits, stra
 src/body/explore.js   the explore action: direction choice, scanning for finds, coming home in time
 src/brain/social.js   feelings, ownership, chest ledger and theft suspects, stealing/sabotage rules
 src/brain/socialSenses.js  watching players: chest opens, sightings, whose base, griefing, ideas
+src/brain/team.js     teamwork: shared goals, pacts, needs and deliveries, help calls, shared bases
+src/brain/teamLink.js team messages: through the setup page, or as in-game whispers
+src/body/teamwork.js  team and help_fight actions, depot chest
 src/body/sneaky.js    whose/steal/sabotage/check_chests/adjust_feelings, witnesses, chest audits
 src/body/survival.js  hazards (lava, fire, smothering, cobwebs), cooking, gear plans and worn tools, loot, upgrade_gear
 src/body/caving.js    the cave action: torches, ore on the walls, waypoints back out

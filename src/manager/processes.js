@@ -65,6 +65,8 @@ class Processes extends EventEmitter {
     readline.createInterface({ input: child.stderr }).on('line', (l) => this._log(e, l, 'err'))
     child.on('message', (m) => {
       if (m && m.type === 'status') { e.status = { ...m, at: Date.now() }; this.emit('status', e.id) }
+      if (m && m.type === 'team-hello') { e.gameName = String(m.name || ''); this._roster() }
+      if (m && m.type === 'team' && m.msg) this._relay(e, m.msg)
     })
     child.on('error', (err) => this._log(e, `could not start: ${err.message}`, 'err'))
     child.on('exit', (code, signal) => {
@@ -72,10 +74,33 @@ class Processes extends EventEmitter {
       e.child = null
       e.exitCode = code
       e.status = null
+      e.gameName = null
+      this._roster()
       this._log(e, `${bot.name} stopped${code ? ` (exit code ${code})` : signal ? ` (${signal})` : ''}`, 'manager')
       this.emit('exit', e.id)
     })
     return e
+  }
+
+  // Teamwork: pass a team message on to the bot(s) it is for, behind the scenes.
+  _relay (from, msg) {
+    const name = (x) => String(x.gameName || x.name || '').toLowerCase()
+    const to = String(msg.to || '').toLowerCase()
+    for (const e of this.procs.values()) {
+      if (!e.running || !e.child || e === from) continue
+      if (to !== '*' && name(e) !== to) continue
+      try { e.child.send({ type: 'team', msg }) } catch {}
+    }
+    this.emit('team', { from: from.gameName || from.name, msg })
+  }
+
+  // Tell every running bot which others it can reach this way.
+  _roster () {
+    const names = [...this.procs.values()].filter(e => e.running && e.child).map(e => e.gameName || e.name).filter(Boolean)
+    for (const e of this.procs.values()) {
+      if (!e.running || !e.child) continue
+      try { e.child.send({ type: 'team-roster', names }) } catch {}
+    }
   }
 
   // Ask the bot to log off cleanly; force it after a few seconds.

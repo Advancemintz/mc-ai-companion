@@ -44,7 +44,8 @@ function getZones (memory) {
   for (const [name, proj] of Object.entries(memory.data.projects || {})) {
     if (proj.style === 'mine') continue
     const box = projectBox(proj)
-    if (box) zones.push({ name, kind: 'base', ...box })
+    const shared = [...new Set([...(proj.sharedWith || []), ...(proj.sharedOwner ? [proj.sharedOwner] : []), ...(proj.helpers || [])])]
+    if (box) zones.push({ name, kind: 'base', ...box, ...(shared.length ? { shared } : {}) })
   }
   const home = memory.getPlace('home')
   if (home && !zones.some(z => contains(z, home))) {
@@ -63,6 +64,12 @@ function contains (zone, p) {
     return dx * dx + dz * dz <= zone.radius * zone.radius && dy >= -zone.radius && dy <= zone.radius
   }
   return p.x >= zone.min.x && p.x <= zone.max.x && p.y >= zone.min.y && p.y <= zone.max.y && p.z >= zone.min.z && p.z <= zone.max.z
+}
+
+// Bots you share the base at pos with (co-owners, and teammates helping build it).
+function coOwnersAt (memory, pos) {
+  if (!pos) return []
+  return [...new Set(getZones(memory).filter(z => z.shared && contains(z, pos)).flatMap(z => z.shared))]
 }
 
 function zoneAt (memory, pos) {
@@ -106,4 +113,4 @@ function protectMovements (bot, movements, memory, { useZones = true } = {}) {
   }
 }
 
-module.exports = { getZones, zoneAt, distanceToZones, protectMovements, invalidate, contains }
+module.exports = { getZones, coOwnersAt, zoneAt, distanceToZones, protectMovements, invalidate, contains }

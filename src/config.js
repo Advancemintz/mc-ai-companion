@@ -42,6 +42,9 @@ const DEFAULTS = {
   // Livestock: how big each pen's herd may get, the fewest adults to keep, and whether a skilled
   // farmer may cull spare adults for meat (never the young).
   ranch: { herdSize: 8, keepAdults: 2, cull: true, milk: true, shear: true },
+  // Teamwork between bots: sharing goals, pacts (build together, gather for a builder, hunt),
+  // calling for help, shared bases. Feelings set who they'll work with (scores -100..100).
+  team: { enabled: true, minFeeling: -10, shareBaseMinFeeling: 40, helpMinFeeling: 0, helpRadius: 96, goalShareMinutes: 5, whispers: true },
   reflexes: {
     hazards: true, // get out of lava and fire, dig out when smothered, cut free of cobwebs
     autoEat: true,

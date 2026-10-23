@@ -900,6 +900,8 @@ actions.build_base = {
         'Call build_base again without plan_only to start (it digs and levels first, so you can start before you have everything).'
     }
 
+    // Teammates may have left materials in the depot chest.
+    if (ctx.team) { try { designNote += await TW.collectDeliveries(ctx, name) } catch (err) { if (err instanceof CancelledError) throw err } }
     const stats = await B.runBlueprint(ctx, plan, { onStatus: (t) => ctx.setStatus(`${name}: ${t}`), detailSkip, allowOwn: true })
     const after = B.survey(bot, plan.cells)
     const essential = Object.entries(after.missing).filter(([g]) => !/optional/.test(g))
@@ -913,7 +915,8 @@ actions.build_base = {
     if (essentialCount > 4) {
       ctx.skills?.award('building', stats.placed * 0.1, 'worked on a base')
       if (mem) mem.saveProject(name, proj)
-      return `worked on the ${label}: ${work}. Now ${after.progress}% done. Still need: ${proj.needs}. Gather those, then call build_base (name "${name}") again to continue.${warn}${designNote}`
+      const told = ctx.team?.projectNeeds(name, Object.fromEntries(essential), TW.depotFor(proj)) ? ' Your teammate has been told what to bring to the depot chest.' : ''
+      return `worked on the ${label}: ${work}. Now ${after.progress}% done. Still need: ${proj.needs}. Gather those, then call build_base (name "${name}") again to continue.${told}${warn}${designNote}`
     }
 
     proj.status = 'done'
@@ -924,7 +927,14 @@ actions.build_base = {
     let result = `${furnishing ? 'furnished' : 'finished'} the ${label}: ${work}.`
     proj.finishedAt = proj.finishedAt || new Date().toISOString()
     if (mem && wasDone) mem.saveProject(name, proj)
-    if (mem && !wasDone) {
+    if (!wasDone) ctx.team?.projectFinished(name)
+    if (mem && !wasDone && proj.sharedOwner) {
+      // Someone else's base that we helped build: remember it, keep our own home.
+      mem.saveProject(name, proj)
+      mem.setPlace(`shared_base_${String(proj.sharedOwner).toLowerCase()}`, plan.inside, bot.game?.dimension, `${proj.sharedOwner}'s base that we built together`)
+      if (!mem.getPlace('home')) mem.setPlace('home', plan.inside, bot.game?.dimension, `shared base with ${proj.sharedOwner}`)
+      mem.addJournal(`Finished building ${proj.sharedOwner}'s base "${proj.sharedName || name}" together.`)
+    } else if (mem && !wasDone) {
       mem.saveProject(name, proj)
       const oldHome = mem.getPlace('home')
       if (oldHome) mem.setPlace('old_home', new Vec3(oldHome.x, oldHome.y, oldHome.z), oldHome.dimension, oldHome.note)
@@ -1155,6 +1165,7 @@ actions.withdraw = {
       const available = items.filter(i => i.name === match.name).reduce((n, i) => n + i.count, 0)
       const n = clamp(Math.round(num(count, available)), 1, available)
       await container.withdraw(match.type, null, n)
+      if (ctx.team && Z.coOwnersAt(ctx.memory, chest.position).length) ctx.team.tellTook(chest.position, { [match.name]: n })
       return `took ${n} ${match.name}${alarm}`
     } finally {
       SN.snapshotOnClose(ctx, chest, container)
@@ -1291,6 +1302,9 @@ actions.breed_animals = FARM.breedAction
 actions.build_pen = require('./ranch').buildPenAction
 const HB = require('./husbandry')
 actions.tend_animals = HB.tendAnimalsAction
+const TW = require('./teamwork')
+actions.team = TW.teamAction
+actions.help_fight = TW.helpFightAction
 actions.tame = HB.tameAction
 actions.pet = HB.petAction
 const NETHER = require('./nether')

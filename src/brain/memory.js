@@ -338,12 +338,13 @@ class Memory {
       if (notes.length) lines.push(`About ${name}: ${notes.join('; ')}`)
     }
     for (const p of this.unfinishedProjects()) {
-      lines.push(`Unfinished project "${p.name}": ${p.size} ${p.style} base at ${p.origin.x} ${p.origin.y} ${p.origin.z}, ${p.progress ?? 0}% done${p.needs ? `, needs ${p.needs}` : ''} (call build_base with name "${p.name}" to continue)`)
+      const team = [...new Set([...(p.sharedWith || []), ...(p.helpers || [])])]
+      lines.push(`Unfinished project "${p.name}": ${p.size} ${p.style} base at ${p.origin.x} ${p.origin.y} ${p.origin.z}${p.sharedOwner ? ` (${p.sharedOwner}'s, built together)` : team.length ? ` (with ${team.join(', ')})` : ''}, ${p.progress ?? 0}% done${p.needs ? `, needs ${p.needs}` : ''} (call build_base with name "${p.name}" to continue)`)
     }
     for (const [name, p] of Object.entries(this.data.projects || {})) {
       if (p.status !== 'done' || !(p.style === 'surface' || p.style === 'underground')) continue
       const ups = (p.upgrades || []).map(u => u.replace(/_/g, ' '))
-      lines.push(`Your base "${name}": ${(p.storeys || 1) > 1 || ups.includes('second storey') ? 'two-storey ' : ''}${p.size} ${p.style} ${p.variant || (p.style === 'surface' ? 'cottage' : 'cellar')} at ${p.origin.x} ${p.origin.y} ${p.origin.z}; ${ups.length ? `upgrades: ${ups.join(', ')}` : 'no upgrades yet'} (improve it with upgrade_base rather than building a new one)`)
+      lines.push(`Your base "${name}": ${(p.storeys || 1) > 1 || ups.includes('second storey') ? 'two-storey ' : ''}${p.size} ${p.style} ${p.variant || (p.style === 'surface' ? 'cottage' : 'cellar')} at ${p.origin.x} ${p.origin.y} ${p.origin.z}${p.sharedOwner ? ` (${p.sharedOwner}'s; you share it)` : p.sharedWith?.length ? ` (shared with ${p.sharedWith.join(', ')})` : ''}; ${ups.length ? `upgrades: ${ups.join(', ')}` : 'no upgrades yet'} (improve it with upgrade_base rather than building a new one)`)
     }
     const farm = this.getProject('farm')
     if (farm) {

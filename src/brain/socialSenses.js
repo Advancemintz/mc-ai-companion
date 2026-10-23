@@ -41,6 +41,7 @@ function startSocialSenses (bot, brain, social, config) {
         .sort((a, b) => a.position.distanceTo(block.position) - b.position.distanceTo(block.position))[0]
       if (!opener) return // probably us
       const key = SN.chestKey(bot, block)
+      if (Z.coOwnersAt(mem, block.position).some(n => n.toLowerCase() === opener.username.toLowerCase())) return // our shared chest
       social.recordChestOpen(key, block.position, opener.username)
       const o = social.ownerAt(block.position, dim(), { zones: zones() })
       if (o?.how === 'mine' || social.ledgerEntry(key)) {
@@ -101,6 +102,7 @@ function startSocialSenses (bot, brain, social, config) {
       const culprit = others().filter(e => e.position.distanceTo(p) <= 7)
         .sort((a, b) => a.position.distanceTo(p) - b.position.distanceTo(p))[0]
       if (!culprit) return
+      if (Z.coOwnersAt(mem, p).some(n => n.toLowerCase() === culprit.username.toLowerCase())) return // a teammate working on our base
       social.event('griefed', culprit.username, `broke my ${oldBlock.name}`)
       notice(`${culprit.username} broke a ${oldBlock.name} in your base at ${p.x} ${p.y} ${p.z}!`, true)
       mem?.addJournal(`${culprit.username} broke my ${oldBlock.name}.`)
