@@ -2,6 +2,7 @@
 
 // Fast, LLM-free survival instincts. Checked several times per second.
 // They interrupt the current action, deal with the problem, then the action resumes.
+//   - get out of lava and fire, dig out when smothered, cut free of cobwebs
 //   - flee when health is low and a monster is close
 //   - fight back against monsters that get too close
 //   - eat when hungry
@@ -11,6 +12,7 @@
 const { goals } = require('mineflayer-pathfinder')
 const W = require('./world')
 const C = require('./combat')
+const SV = require('./survival')
 const log = require('../util/log')
 const { sleep } = require('./executor')
 
@@ -21,6 +23,8 @@ function startReflexes (bot, executor, config, notify) {
   let lastEatAttempt = 0
   let busy = false
   let lastFleeNotice = 0
+  let lastHazard = 0
+  let lastHazardNotice = 0
   const ignoreUntil = new Map() // entity id -> timestamp; mobs we couldn't reach
   const notIgnored = (e) => (ignoreUntil.get(e.id) || 0) < Date.now()
   // Combat skill: how fast it reacts, how easily it panics, and which tricks it knows.
@@ -80,6 +84,22 @@ function startReflexes (bot, executor, config, notify) {
     try {
       const pos = bot.entity.position
       const fightingAlready = executor.isBusyWith('attack') || executor.isBusyWith('guard')
+
+      // 0. Hazards: lava, fire, being smothered, cobwebs. These come before everything else.
+      if (cfg.hazards !== false) {
+        const h = SV.hazard(bot)
+        if (h && Date.now() - lastHazard > 1500) {
+          lastHazard = Date.now()
+          await executor.interrupt('hazard', async () => {
+            const what = await SV.escape(bot, h)
+            log.reflex(what)
+            const wake = h.kind === 'lava' || h.kind === 'fire'
+            notify(`[reflex] You ${what}. Health ${Math.round(bot.health)}/20.`, wake && Date.now() - lastHazardNotice > 30000)
+            if (wake) lastHazardNotice = Date.now()
+          })
+          return
+        }
+      }
 
       // 1. Flee: low health and something dangerous nearby.
       const danger = W.nearestHostile(bot, 10)

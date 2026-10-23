@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.10.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.11.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, crafts and smelts · fights with real technique (bows, crits, strafing) · explores and maps the land · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · holds lasting feelings about every player, knows whose base is whose, notices theft, and (if it comes to that) steals a little · server operators stay in control.
+**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, goes caving, crafts and smelts · cooks, keeps its gear up to date, stores its loot and sleeps at night · trades with villagers · fights with real technique (bows, crits, strafing) · explores and maps the land · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · holds lasting feelings about every player, knows whose base is whose, notices theft, and (if it comes to that) steals a little · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (162 automated tests: 80 unit + 82 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (184 automated tests: 89 unit + 95 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -49,12 +49,12 @@ Every bot starts as a beginner and improves by doing, like a real player. Each s
 | Skill | Tiers |
 |---|---|
 | **Building** | 1 Dirt-hut novice: small huts only (flat-roofed box or peaked), misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases in four designs, forgets some windows and torches; can add a storage room · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail; + watchtower and farmhouse designs; + bunker · 4 Architect (1200 XP, needs mining 3): two-storey houses; + the end-game manor and hillside fortress; + second storey and enchanting room upgrades |
-| **Mining** | 1 Surface scraper: only stone and ores it can see · 2 Tunneler (60): its own `mine` for coal, copper and iron, with short branches · 3 Prospector (250): every ore, full branch mines and veins · 4 Deep miner (800): tighter, longer branches and bigger veins |
+| **Mining** | 1 Surface scraper: only stone and ores it can see · 2 Tunneler (60): its own `mine` for coal, copper and iron, with short branches; short `cave` trips · 3 Prospector (250): every ore, full branch mines and veins, longer caving · 4 Deep miner (800): tighter, longer branches and bigger veins, long cave expeditions · 5 Master miner (2000): strip mining (long tunnels three apart), the longest cave trips |
 | **Combat** | 1 Panicky: slow to react, flails, sometimes just runs, flees early · 2 Scrapper (40): times swings to the weapon cooldown, fights the most dangerous monster first, backs off to eat · 3 Fighter (200): shield, backs off from creepers, strafes, bow on skeletons and creepers up to 16 blocks · 4 Veteran (700): critical hits, leads moving targets with the bow (24 blocks), fights on at lower health · 5 Champion (1600): crits almost every swing, unpredictable strafing, bow out to 32 blocks |
 | **Exploration** | 1 Wanderer: `explore` up to 96 blocks from home for ~3 minutes; notices biomes and villages · 2 Scout (50): 192 blocks, 6 min; + caves, lava, other people's bases; heads for unexplored land · 3 Pathfinder (200): 384 blocks, 10 min; + structures (temples, outposts, dungeons, ruined portals...) · 4 Cartographer (600): 768 blocks, 15 min; marks big finds with a torch post |
 | **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
-| **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals` · 4 Agronomist (600): 11x11 farms and bone meal |
-| **The Nether** | unlocks at combat 3 + mining 3 · 1 Portal builder: `build_portal`, short peeks through · 2 Day tripper (80): quartz, Nether gold, glowstone within 32 blocks · 3 Fortress raider (300): nether wart and blaze rods within 96 · 4 Piglin trader (900): bartering gold with piglins |
+| **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals` and `build_pen` · 4 Agronomist (600): 11x11 farms and bone meal · 5 Master farmer (1200): a melon and pumpkin patch and sugar cane |
+| **The Nether** | unlocks at combat 3 + mining 3 · 1 Portal builder: `build_portal`, short peeks through · 2 Day tripper (80): quartz, Nether gold, glowstone within 32 blocks · 3 Fortress raider (300): nether wart and blaze rods within 96 · 4 Piglin trader (900): bartering gold with piglins · 5 Netherite smith (2000, needs combat 4 + mining 4): ancient debris, bastion raids, `make_netherite` |
 
 - **XP comes from results:** a finished base or upgrade, ores mined (diamonds count most), fights won (more for critical hits), crops harvested, new land mapped and things found, animals bred, Nether trips survived, track laid. Failed attempts give a little too.
 - **Some tiers need other skills first.** For example, Homesteader needs mining tier 2.
@@ -118,7 +118,7 @@ Blueprints and other content work best as data, so new variety (house styles, pa
 - **Bots:** each bot gets a card with tabs:
   - *Who they are:* name, first words, play style, honesty and the personality text. **Randomize** rolls a new character; tick the parts you want to keep (the name, the personality, the talents...).
   - *Skills:* how fast it learns each skill (talent sliders) and which tier it starts at.
-  - *Brain and morals:* its own AI provider or model if you like, whether it acts on its own, how quickly it decides things, and its morals: whether and when it steals or sabotages, how fast grudges fade, and who it never targets.
+  - *Brain and morals:* its own AI provider or model if you like, whether it acts on its own, how quickly it decides things, how many human touches it has (pauses, gestures, fidgets), and its morals: whether and when it steals or sabotages, how fast grudges fade, and who it never targets.
   - *Live* (while it runs): health, food, position and what it's doing; pause, resume, stop its task, make it decide something, switch autonomy; talk to it or send any `!` command (the page counts as an operator); set how it feels about a player, protect players, set skill tiers and switch social features. Below that, what it knows: skills and XP, feelings with the reasons, goals, recent memories, explored land and finds, thefts from it, and its own secrets.
   - *Log:* everything it prints, live.
 - **Changing a bot later:** live controls apply at once. Edits to its card (personality, name, model, talents, morals) are saved straight away and apply when it restarts; the page shows a *Restart now* button. A restart keeps its memories, skills and feelings, and renaming a bot keeps them too.
@@ -227,16 +227,21 @@ The terminal window counts as an operator too.
 | `build` | hut (walls, roof, doorway; `size` 2-7), wall, tower, platform, floor. Picks a flat, open, dry spot within 16 blocks on its own, clears leaves/plants, levels small bumps, fills dips, and mixes materials if one isn't enough. The first hut is saved as home. |
 | `build_base` | a real base in one of several designs, as a resumable project (see below) |
 | `upgrade_base` | improve the base you have: storage room, bunker, second storey, enchanting room (whichever fit the design) |
-| `farm`, `breed_animals` | a crop farm near home that it tills, plants, harvests and replants; breeding animals (see below) |
-| `build_portal`, `nether_trip` | build and light a Nether portal; a careful round trip to gather one thing (see below) |
-| `mine` | a proper mine: covered entrance away from bases, stairs to the right depth for the ore, branch mining (see below) |
+| `farm`, `breed_animals`, `build_pen` | a crop farm near home that it tills, plants, harvests and replants (plus a melon/pumpkin patch and sugar cane for master farmers); breeding animals; fenced pens it lures animals into (see below) |
+| `build_portal`, `nether_trip`, `make_netherite` | build and light a Nether portal; a careful round trip to gather one thing, tunnel for ancient debris or raid a bastion; turn debris into netherite gear (see below) |
+| `mine` | a proper mine: covered entrance away from bases, stairs to the right depth for the ore, branch or strip mining (see below) |
+| `cave` | caving: into a known cave with torches, mines the ore on the walls, back out the way it came (see below) |
+| `cook` | cooks raw food, in a smoker if there is one |
+| `upgrade_gear` | crafts better tools and armour from what it carries, replaces anything about to break, puts the best armour on |
+| `trade` | sells surplus to villagers for emeralds and buys what it wants; remembers every offer (see below) |
 | `plan_railway`, `build_railway`, `ride_railway` | powered minecart lines between bases and places (see below) |
 | `protect_area`, `unprotect_area` | mark a place (a friend's house, a farm) the bot must never dig in |
 | `clean_inventory` | store everything in a nearby chest, or drop junk and extra dirt/gravel |
 | `go_to_surface` | climbs or digs out to open sky when underground |
 | `remember_place`, `go_to_place`, `forget_place` | named places in long-term memory (home, mine, village...) |
 | `set_goal`, `complete_goal`, `note_player` | the bot's own goals and what it knows about players |
-| `place_block`, `equip`, `give`, `drop`, `eat`, `sleep` | |
+| `place_block`, `equip`, `give`, `drop`, `eat` | |
+| `sleep` | sleeps in its own bed (or one nobody owns, never someone else's), placing a carried bed if needed |
 | `deposit`, `withdraw` | nearest chest or barrel that is its own (or nobody's), never someone else's; checks its own chests for theft while it's there |
 | `whose` | whose base a spot or the nearest chest is in |
 | `adjust_feelings` | the model nudges its feelings about someone for things the game can't see (an insult, a favour); capped |
@@ -376,6 +381,10 @@ The bot's memory lists each base with its design and upgrades, and its needs sug
 
 `breed_animals` (tier 3) feeds two adults of a kind with the right food (wheat for cows and sheep, carrots/potatoes/beetroot for pigs, seeds for chickens, carrots for rabbits).
 
+`build_pen` (tier 3, `animal`, `count`) builds a 7x7 fenced pen near home (about 24 fences, plus a fence gate if it has one) and fills it the way players do: it holds the animals' food, walks up to one, leads it in through the gate, puts the food away so it stops following, steps out and shuts the gate. Later calls bring more in. Pens are saved and protected like the farm.
+
+**Master farmers (tier 5)** also keep a **melon or pumpkin patch** (`farm` with `crop` melon or pumpkin: a 7x3 strip with stems every other block and room around them for the fruit; it harvests the fruit and leaves the stems) and **sugar cane** (`crop` sugar_cane: planted on dirt or sand right beside water near home; it cuts from the second block up so it regrows). A normal `farm` round tends both too.
+
 ### The Nether
 
 The Nether is a late skill: it unlocks only at combat 3 and mining 3. If your personality prompt says the Nether is only a story, you can keep it that way with `!skill nether lock`.
@@ -386,6 +395,9 @@ The Nether is a late skill: it unlocks only at combat 3 and mining 3. If your pe
   - It won't mine Nether gold with piglins nearby.
   - Bartering needs gold armour on.
   - Blaze hunting uses the normal combat code.
+  - **Ancient debris** (tier 5, needs a diamond pickaxe): it goes to y 8-22, where debris is most common, and tunnels away from the portal with side branches, sealing off lava it breaks into. It only takes debris the tunnel actually uncovers; it never "sees through" rock.
+  - **Bastions** (tier 5): it finds one by its dark blackstone bricks and loots its chests for templates, gold, debris, scrap and diamond gear. It puts gold armour on first, but piglins guarding the loot get angry anyway, so go healthy.
+- **`make_netherite`** (tier 5) smelts debris into scrap (in a blast furnace if there is one), crafts ingots (4 scrap + 4 gold), and upgrades diamond gear at a smithing table, sword first, then pickaxe, then armour. Each upgrade needs a netherite upgrade template (from bastions) and one ingot.
 - The Nether can't be simulated well, so trips are the least tested part of this release. Watch the first few.
 
 ### Mining
@@ -397,7 +409,22 @@ The Nether is a late skill: it unlocks only at combat 3 and mining 3. If your pe
 3. At the best depth for the target (iron y=16, gold y=-16, diamond/redstone y=-58, coal/copper y=48, lapis y=0), it branch-mines: a main tunnel with side branches every 4 blocks. It digs out every ore vein it uncovers and places torches.
 4. The mine is remembered. Each call digs further, and asking for a different ore adds a new level off the same staircase.
 
+The Master miner (tier 5) strip-mines: long side tunnels three blocks apart, so it sees every ore in the layer. Every miner stops before its last good pickaxe breaks.
+
+**Caving** (`cave`, mining tier 2+) is the other way players get ore. The bot walks into a cave it found while exploring (or one right here, or a saved place in `at`):
+- It lights the way with torches, mines the ore it can see on the walls (best ore first, the whole vein, never next to lava), and goes deeper when there's none in sight.
+- It remembers waypoints on the way in and walks back out along them.
+- It turns back when the trip has gone on long enough or it has gone as deep as its tier allows (3 min / 40 blocks at tier 2, up to 15 min / 160 blocks at tier 5), or when it's hurt, hungry, out of torches, its pickaxe is nearly broken, or its pockets are full.
+- It needs a pickaxe and at least 4 torches. The cave is marked in its finds with what it got.
+
 `collect_block` now only takes ores and stone you can actually see (on cliffs or in caves). For buried ores it tells the bot to use `mine`.
+
+### Trading
+
+`trade` (optionally `want`, `sell`, `at`) goes to the nearest village it knows (from exploring) or a saved place, walks up to each villager and looks through their offers.
+- It sells surplus for emeralds: things that pile up (wheat, potatoes, coal, paper, string, rotten flesh, sticks, melons...), keeping some back unless it's saving up for something, or exactly what you name in `sell`.
+- It buys what you name in `want` (enchanted books, bookshelves, iron tools...) if someone offers it and it can afford it, selling more surplus first if needed.
+- Every offer it sees goes into a trade book in memory, shown in its STATE as "Villager offers you know", so it remembers where to come back for what.
 
 ### Railways
 
@@ -423,10 +450,28 @@ The Nether is a late skill: it unlocks only at combat 3 and mining 3. If your pe
   - *Autopilot:* if the model chooses to do nothing twice in a row, or can't be reached, the body picks something sensible itself. That might be going home at night, tidying a full inventory, continuing an unfinished base, hunting when food is low, collecting wood, joining a nearby player, or looking around.
   - *Idle animation:* when it's idle it looks at nearby players and glances around instead of freezing.
 
+### Living like a real player
+
+Habits every player picks up, shared by every bot at every level:
+- **Cooking.** Raw meat barely feeds you, so it cooks it (`cook`), in a smoker if there's one (twice as fast). Ore goes in a blast furnace when there is one. It keeps a few potatoes back for planting.
+- **Gear.** As soon as it has the materials, it crafts better tools and armour (`upgrade_gear`), in the order players care about: pickaxe, sword, chestplate, leggings, then the rest. It replaces tools before they break, makes a shield, wears the best armour, and tells the model what the next upgrade needs.
+- **Putting things away.** Back home with pockets full of loot, it deposits it in its own chests (keeping gear, food and torches).
+- **Sleep.** At night at home it goes to bed in its own bed (never someone else's: that would move its respawn point). It keeps count of nights without sleep, and after three it knows phantoms are coming.
+- These show up as needs (`your iron_pickaxe is nearly broken`, `you have raw food`, `you haven't slept for 3 nights`), and the autopilot does them when the model idles.
+
+**Mannerisms** make it read as a person rather than a machine, without changing what it decides:
+- a short pause before starting something new, glancing at the player it's doing it for;
+- stepping back to look at a building it just finished;
+- gestures while chatting: a crouch-nod for hi, thanks, yes and bye, a hop when it laughs or cheers, a head shake for no;
+- fidgeting when idle (a hop, a crouch, looking at the sky or at a passing animal, punching the air, a step or two), and a nod hello when someone walks up after a while away.
+
+How much of this happens is `bot.mannerisms.level` (0 none, 1 lots; the setup page calls it "Human touches"). The randomizer sets it from the personality: lively characters fidget more than calm ones.
+
 **Reflexes** run without the LLM, several times a second:
 
 - **Self-defense:** fights monsters within `defendRadius` and whatever hits it, with all the technique its combat tier allows (see *Fighting*).
 - **Flee:** runs away when health drops to `fleeHealth` or below and a monster is near, then eats.
+- **Hazards:** climbs out of lava onto the nearest safe ground, puts out flames with a water bucket (and scoops the water back up) or runs into water, digs out when sand or gravel falls on it, and cuts free of cobwebs. These come before everything else (`reflexes.hazards`).
 - **Auto-eat:** eats the best food when hungry.
 - **Auto-armor:** wears the best armor it picks up.
 - **Swim up** when out of air.
@@ -458,7 +503,8 @@ When a reflex interrupts a task, the task resumes afterwards with what's left. F
 | `bot.maxChainedSteps` | 10 | how many times it may re-plan on its own before waiting for a player |
 | `bot.reconnect` | true | reconnect after disconnects |
 | `bot.showThoughts` | true | print the model's reasoning in the terminal |
-| `reflexes.*` | | turn reflexes on/off, `defendRadius`, `fleeHealth` |
+| `bot.mannerisms` | on, level 0.5 | human touches: pauses, gestures, fidgets, admiring builds (`enabled`, `level` 0-1) |
+| `reflexes.*` | | turn reflexes on/off (`hazards`, `autoEat`, `selfDefense`, `autoArmor`), `defendRadius`, `fleeHealth` |
 | `social.*` | see *Feelings, property and mischief* | feelings, ownership, theft detection, stealing, sabotage, protected players |
 | `llm.temperature` | 0.6 | creativity (ignored by OpenAI reasoning models unless set per provider) |
 | `llm.maxHistory` | 16 | past messages sent each time (more = better memory, slower and costlier) |
@@ -523,6 +569,12 @@ src/body/explore.js   the explore action: direction choice, scanning for finds, 
 src/brain/social.js   feelings, ownership, chest ledger and theft suspects, stealing/sabotage rules
 src/brain/socialSenses.js  watching players: chest opens, sightings, whose base, griefing, ideas
 src/body/sneaky.js    whose/steal/sabotage/check_chests/adjust_feelings, witnesses, chest audits
+src/body/survival.js  hazards (lava, fire, smothering, cobwebs), cooking, gear plans and worn tools, loot, upgrade_gear
+src/body/caving.js    the cave action: torches, ore on the walls, waypoints back out
+src/body/ranch.js     melon/pumpkin patch, sugar cane, animal pens
+src/body/trading.js   villager trading and the trade book
+src/body/netherite.js ancient debris tunnels, bastion raids, make_netherite
+src/body/mannerisms.js  pauses, gestures, admiring builds (idle.js does the fidgets)
 src/manager/          the setup page: server.js (local web API), page.html, roster.js (bots and their config files),
                       processes.js (starting and talking to bots), randomize.js (characters), mind.js (memory view)
 src/body/railway.js   railway routes, track, power, stations
@@ -545,6 +597,6 @@ Issues and pull requests are welcome. Run `npm test` (fast unit tests) and `npm 
 
 - Package as a single download (Node's single-executable apps).
 - A "skill library": save successful multi-step plans and reuse them.
-- Danger reflexes (lava, falls, getting stuck), crossbows and tridents.
-- Schematic-based building, doors and beds in huts, villager trading, bastions, melon/pumpkin and auto-farms.
+- Crossbows and tridents, and falling-damage awareness (water buckets for big drops).
+- Schematic-based building, doors and beds in huts, enchanting, potion brewing, and auto-farms.
 - Voice chat via speech-to-text.

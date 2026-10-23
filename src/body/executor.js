@@ -72,6 +72,8 @@ class Executor extends EventEmitter {
     this.reflexActive = null // name of running reflex
     this._planResults = []
     this._planNames = []
+    this.beforeStep = null // optional async (step, ctx, def) hooks
+    this.afterStep = null
   }
 
   isIdle () {
@@ -246,10 +248,18 @@ class Executor extends EventEmitter {
 
       let result = null
       let error = null
+      let finished = false
       try {
         const timeoutMs = def.persistent ? 0 : (def.timeoutSeconds || 300) * 1000
         this.skills?.gate(step.name, step.args) // "I haven't learned that yet"
+        // Mannerisms (src/body/mannerisms.js): a short pause before, a look at the result after.
+        if (this.beforeStep) await raceCancel(Promise.resolve(this.beforeStep(step, ctx, def)), token, 5000).catch(err => { if (err instanceof CancelledError) throw err })
         result = await raceCancel(def.run(ctx, step.args), token, timeoutMs)
+        finished = true
+        // The job is done; a flourish afterwards can be cut short without undoing it.
+        if (this.afterStep) {
+          try { await raceCancel(Promise.resolve(this.afterStep(step, result, ctx, def)), token, 15000) } catch {}
+        }
       } catch (err) {
         error = err
       } finally {
@@ -257,9 +267,9 @@ class Executor extends EventEmitter {
         token.cancel('finished') // release any listeners the action registered
       }
 
-      const wasInterrupted = this.current.interrupted
+      const wasInterrupted = this.current.interrupted && !finished
       const wasStuck = this.current.stuck
-      const cancelReason = this.current.cancelReason
+      const cancelReason = finished ? null : this.current.cancelReason
       this.current = null
       this.emit('_actionEnded')
 

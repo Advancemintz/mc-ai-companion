@@ -65,28 +65,35 @@ const SKILLS = {
         xp: 0,
         can: 'collect stone and ores you can see (cliffs, caves) with collect_block',
         next: 'collect exposed stone, coal and iron',
-        params: { mine: false, targets: [], branchSpacing: 4, branchLength: 3, veinLimit: 4, torchEvery: 12 }
+        params: { mine: false, targets: [], branchSpacing: 4, branchLength: 3, veinLimit: 4, torchEvery: 12, cave: null }
       },
       {
         name: 'Tunneler',
         xp: 60,
-        can: 'dig your own mine with `mine`, for stone, coal, copper and iron (short side tunnels)',
+        can: 'dig your own mine with `mine`, for stone, coal, copper and iron (short side tunnels), and go caving with `cave`: short, careful trips into caves near their mouth for the ore on the walls',
         next: 'mine plenty of iron and coal',
-        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron'], branchSpacing: 4, branchLength: 3, veinLimit: 6, torchEvery: 12 }
+        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron'], branchSpacing: 4, branchLength: 3, veinLimit: 6, torchEvery: 12, cave: { minutes: 3, reach: 40, ores: ['coal', 'copper', 'iron'] } }
       },
       {
         name: 'Prospector',
         xp: 250,
-        can: 'mine for anything (gold, lapis, redstone, diamonds) with proper branch mines and full veins',
+        can: 'mine for anything (gold, lapis, redstone, diamonds) with proper branch mines and full veins; longer caving trips that follow caves deeper',
         next: 'find diamonds and gold',
-        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'], branchSpacing: 4, branchLength: 6, veinLimit: 16, torchEvery: 8 }
+        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'], branchSpacing: 4, branchLength: 6, veinLimit: 16, torchEvery: 8, cave: { minutes: 6, reach: 80, ores: ['coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'] } }
       },
       {
         name: 'Deep miner',
         xp: 800,
-        can: 'efficient branch mines (tighter, longer branches) and big veins',
-        next: 'keep mining; future tiers will add caving and strip mines',
-        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'], branchSpacing: 3, branchLength: 8, veinLimit: 24, torchEvery: 6 }
+        can: 'efficient branch mines (tighter, longer branches), big veins, and long cave expeditions',
+        next: 'mine a lot more; the best miners run long strip mines',
+        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'], branchSpacing: 3, branchLength: 8, veinLimit: 24, torchEvery: 6, cave: { minutes: 10, reach: 120, ores: ['coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'] } }
+      },
+      {
+        name: 'Master miner',
+        xp: 2000,
+        can: 'strip mining: long parallel tunnels three blocks apart that see every ore in a layer, plus the longest cave expeditions',
+        next: 'top tier: keep your pickaxes sharp',
+        params: { mine: true, targets: ['stone', 'coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'], branchSpacing: 3, branchLength: 16, veinLimit: 32, torchEvery: 6, strip: true, cave: { minutes: 15, reach: 160, ores: ['coal', 'copper', 'iron', 'lapis', 'gold', 'redstone', 'diamond', 'emerald'] } }
       }
     ]
   },
@@ -185,28 +192,35 @@ const SKILLS = {
         xp: 0,
         can: 'a small wheat patch (5x5) next to water you find, with `farm` (needs a hoe; you pull up grass for seeds)',
         next: 'harvest and replant your wheat a few times',
-        params: { plotRadius: 2, crops: ['wheat'], makeWater: false, fence: false, breed: false, boneMeal: false }
+        params: { plotRadius: 2, crops: ['wheat'], makeWater: false, fence: false, breed: false, boneMeal: false, pens: false }
       },
       {
         name: 'Gardener',
         xp: 60,
         can: 'bigger farms (9x9) anywhere flat: a water bucket lets you make your own water. Grows wheat, carrots, potatoes and beetroot, and fences the farm in',
         next: 'keep harvesting; carry a water bucket and fences',
-        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: false, boneMeal: false }
+        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: false, boneMeal: false, pens: false }
       },
       {
         name: 'Rancher',
         xp: 220,
-        can: 'everything so far, plus breeding animals with breed_animals (cows, sheep, pigs, chickens, rabbits)',
+        can: 'everything so far, plus breeding animals with breed_animals, and fenced animal pens with build_pen (you lure animals in by holding their food)',
         next: 'breed animals and keep the farm going',
-        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: false }
+        params: { plotRadius: 4, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: false, pens: true }
       },
       {
         name: 'Agronomist',
         xp: 600,
         can: 'big farms (11x11) and bone meal to make crops grow at once',
-        next: 'future tiers will add melons, pumpkins, sugar cane and auto-farms',
-        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: true }
+        next: 'keep farming; master farmers grow melons, pumpkins and sugar cane too',
+        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot'], makeWater: true, fence: true, breed: true, boneMeal: true, pens: true }
+      },
+      {
+        name: 'Master farmer',
+        xp: 1200,
+        can: 'a melon and pumpkin patch (stems with room for the fruit to grow) and sugar cane along the water, with farm crop melon, pumpkin or sugar_cane; a normal farm round tends them too',
+        next: 'top tier: keep everyone fed',
+        params: { plotRadius: 5, crops: ['wheat', 'carrots', 'potatoes', 'beetroot', 'melon', 'pumpkin', 'sugar_cane'], makeWater: true, fence: true, breed: true, boneMeal: true, pens: true }
       }
     ]
   },
@@ -285,8 +299,16 @@ const SKILLS = {
         name: 'Piglin trader',
         xp: 900,
         can: 'everything, plus bartering gold ingots with piglins (wear something gold!) for ender pearls and other loot',
-        next: 'future tiers will add bastions and netherite',
+        next: 'get your combat and mining to tier 4; then go for ancient debris and bastions',
         params: { trip: true, radius: 96, minutes: 12, targets: ['netherrack', 'quartz', 'gold', 'glowstone', 'nether_wart', 'blaze_rod', 'barter'], fight: ['blaze'], barter: true }
+      },
+      {
+        name: 'Netherite smith',
+        xp: 2000,
+        requires: { combat: 4, mining: 4 },
+        can: 'the end game: tunnelling at y 8-22 for ancient debris (needs a diamond pickaxe), raiding bastions for their chests (wear gold, expect angry piglins), and make_netherite to turn debris into netherite and upgrade diamond gear',
+        next: 'top tier: full netherite',
+        params: { trip: true, radius: 128, minutes: 15, targets: ['netherrack', 'quartz', 'gold', 'glowstone', 'nether_wart', 'blaze_rod', 'barter', 'ancient_debris', 'bastion'], fight: ['blaze'], barter: true }
       }
     ]
   }
@@ -300,14 +322,17 @@ const ACTION_SKILLS = {
   upgrade_base: { skill: 'building', minTier: 2 },
   collect_block: { skill: 'mining', minTier: 1, onlyFor: /_ore$|^(stone|deepslate|cobblestone|tuff|andesite|diorite|granite|iron|coal|gold|copper|diamond|redstone|lapis|emerald)/ },
   mine: { skill: 'mining', minTier: 2 },
+  cave: { skill: 'mining', minTier: 2 },
   attack: { skill: 'combat', minTier: 1 },
   guard: { skill: 'combat', minTier: 1 },
   explore: { skill: 'exploration', minTier: 1 },
   build_railway: { skill: 'railways', minTier: 1 },
   farm: { skill: 'farming', minTier: 1 },
   breed_animals: { skill: 'farming', minTier: 3 },
+  build_pen: { skill: 'farming', minTier: 3 },
   build_portal: { skill: 'nether', minTier: 1 },
-  nether_trip: { skill: 'nether', minTier: 1 }
+  nether_trip: { skill: 'nether', minTier: 1 },
+  make_netherite: { skill: 'nether', minTier: 5 }
 }
 
 module.exports = { SKILLS, ACTION_SKILLS }

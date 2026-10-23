@@ -3,8 +3,24 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (162 automated tests: 80 unit + 82 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (184 automated tests: 89 unit + 95 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.11.0: Living like a real player
+
+- **Survival habits** (every bot, every level):
+  - *Hazard reflexes:* climbs out of lava to the nearest safe ground, douses flames with a water bucket (and picks the water back up) or runs into water, digs out when sand or gravel buries its head, cuts free of cobwebs. They come before every other reflex.
+  - *Cooking:* new `cook` action for raw meat, fish, potatoes and kelp (keeping a few potatoes to plant). `smelt` now uses a smoker for food and a blast furnace for ore when there is one.
+  - *Gear:* new `upgrade_gear` crafts better tools and armour in the order that matters (pickaxe, sword, chestplate, leggings, then the rest), replaces anything about to break, makes a shield and wears the best armour. Needs list worn tools and craftable upgrades. Mining stops before the last good pickaxe breaks.
+  - *Home life:* it puts loot away when it gets home, goes to bed at night in its own bed (`sleep` now refuses other people's beds, places a carried bed, and won't try by day or with monsters around), and counts nights without sleep (phantoms after three).
+  - The autopilot does all of these when the model idles.
+- **Mining:** new `cave` action from tier 2: into a cave found while exploring, torches along the way, ore off the walls (whole veins, best first, never beside lava), deeper when nothing is in sight, and back out along its waypoints. Turns back when hurt, hungry, out of torches, pickaxe nearly broken, pockets full, or as deep as its tier allows. New tier 5 *Master miner*: strip mining.
+- **Farming:** `build_pen` (tier 3): a 7x7 fenced pen filled by luring animals in with their food. New tier 5 *Master farmer*: a melon and pumpkin patch (stems with room for fruit) and sugar cane by the water, tended by `farm`.
+- **Nether:** new tier 5 *Netherite smith* (needs combat 4 + mining 4): `nether_trip` for `ancient_debris` (tunnels at y 8-22 and only takes what it uncovers) or `bastion` (loots bastion chests), and `make_netherite` (debris to scrap to ingots, then smithing-table upgrades of diamond gear).
+- **Trading:** new `trade` action: goes to a known village, reads every villager's offers, sells surplus for emeralds (more of it when saving up), buys what it wants, and keeps a trade book shown in its STATE.
+- **Mannerisms** (`bot.mannerisms.level`, "Human touches" on the setup page, set from personality by the randomizer): a short pause before new tasks, stepping back to admire a finished build, crouch-nods, hops and head shakes while chatting, idle fidgets, and a nod for someone who walks up.
+- No skill tier says "future" any more.
+- Tests: 22 new (9 unit, 13 simulated-world: lava and fire escapes, cooking, gear, caving, melon patch, sugar cane, pens, trading, netherite, debris tunnels, mannerisms). The simulated world gained crafting recipes, furnaces and non-solid cave air.
 
 ## 0.10.0: The setup page
 

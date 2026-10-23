@@ -256,5 +256,6 @@ module.exports = {
   playerEntity,
   bestWeapon,
   bestFood,
-  lineOfSight
+  lineOfSight,
+  BAD_FOOD
 }

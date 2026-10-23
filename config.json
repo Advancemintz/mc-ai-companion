@@ -26,13 +26,14 @@
       "startTier": 1,
       "startTiers": {},
       "caps": {},
-      "affinity": { "building": 1.0, "mining": 1.0, "combat": 1.0, "railways": 1.0, "farming": 1.0, "exploration": 1.0 },
+      "affinity": { "building": 1.0, "mining": 1.0, "combat": 1.0, "railways": 1.0, "farming": 1.0, "exploration": 1.0, "nether": 1.0 },
       "xpRate": 1
     },
     "memoryName": "",
     "maxChainedSteps": 10,
     "reconnect": true,
-    "showThoughts": true
+    "showThoughts": true,
+    "mannerisms": { "enabled": true, "level": 0.5 }
   },
 
   "social": {
@@ -46,6 +47,7 @@
   },
 
   "reflexes": {
+    "hazards": true,
     "autoEat": true,
     "selfDefense": true,
     "defendRadius": 6,

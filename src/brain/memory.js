@@ -366,6 +366,12 @@ class Memory {
     }
     const finds = this.discoveriesNear(pos, dimension, 6)
     if (finds.length) lines.push('Finds: ' + finds.map(d => `${d.label} at ${d.x} ${d.y} ${d.z} (${d.distance}m${d.note ? `, ${d.note}` : ''})`).join('; '))
+    const book = Object.values(this.data.tradeBook || {})
+    if (book.length) {
+      const offers = []
+      for (const v of book) for (const t of v.trades) if (!t.disabled && !/ emerald$/.test(t.get)) offers.push(`${t.get} for ${t.give} (${v.x} ${v.z})`)
+      lines.push(`Villager offers you know (${book.length} villagers): ${offers.slice(0, 6).join('; ') || 'nothing but buying emeralds'}`)
+    }
     const zones = this.data.zones || []
     if (zones.length) lines.push('Protected areas: ' + zones.map(z => `${z.name} (${z.x} ${z.y} ${z.z}, r=${z.radius})`).join('; '))
     const journal = this.recentJournal(5)

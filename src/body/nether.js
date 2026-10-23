@@ -19,9 +19,11 @@ const TRIP_TARGETS = {
   glowstone: { blocks: ['glowstone'], item: 'glowstone_dust' },
   nether_wart: { blocks: ['nether_wart'], item: 'nether_wart' },
   blaze_rod: { mob: 'blaze', item: 'blaze_rod' },
-  barter: { mob: 'piglin', item: null }
+  barter: { mob: 'piglin', item: null },
+  ancient_debris: { tunnel: true, item: 'ancient_debris' },
+  bastion: { raid: true, item: null }
 }
-const TARGET_ALIASES = { quartz_ore: 'quartz', nether_quartz: 'quartz', gold_ore: 'gold', nether_gold: 'gold', wart: 'nether_wart', blaze: 'blaze_rod', blaze_rods: 'blaze_rod', piglin: 'barter', trade: 'barter', look: 'look', explore: 'look' }
+const TARGET_ALIASES = { quartz_ore: 'quartz', nether_quartz: 'quartz', gold_ore: 'gold', nether_gold: 'gold', wart: 'nether_wart', blaze: 'blaze_rod', blaze_rods: 'blaze_rod', piglin: 'barter', trade: 'barter', look: 'look', explore: 'look', debris: 'ancient_debris', netherite: 'ancient_debris', netherite_scrap: 'ancient_debris', bastion_remnant: 'bastion', loot: 'bastion' }
 
 const inNether = (bot) => /nether/.test(String(bot.game?.dimension || ''))
 const count = (bot, name) => bot.inventory.items().filter(i => i.name === name).reduce((n, i) => n + i.count, 0)
@@ -234,7 +236,7 @@ async function barter (ctx, origin, radius, deadline, stats) {
 }
 
 const tripAction = {
-  description: 'A careful round trip through your Nether portal: go through, gather something (get: netherrack, quartz, gold, glowstone, nether_wart, blaze_rod, barter, or look) within the range and time your tier allows, then come back through the portal. Turns back early if hurt or hungry. Bring food, good armour and blocks.',
+  description: 'A careful round trip through your Nether portal: go through, gather something (get: netherrack, quartz, gold, glowstone, nether_wart, blaze_rod, barter, ancient_debris, bastion, or look) within the range and time your tier allows, then come back through the portal. Turns back early if hurt or hungry. Bring food, good armour and blocks.',
   params: { get: 'what to go for (default: look)' },
   timeoutSeconds: 1200,
   run: async (ctx, { get }) => {
@@ -280,7 +282,10 @@ const tripAction = {
         await ctx.sleep(Math.min(20000, skill.minutes * 30000))
       } else {
         const t = TRIP_TARGETS[key]
-        if (t.blocks) await gatherBlocks(ctx, t, back, skill.radius, deadline, stats)
+        const NT = require('./netherite')
+        if (t.tunnel) await NT.tunnelForDebris(ctx, back, skill.radius, deadline, stats)
+        else if (t.raid) await NT.raidBastion(ctx, back, skill.radius, deadline, stats)
+        else if (t.blocks) await gatherBlocks(ctx, t, back, skill.radius, deadline, stats)
         else if (key === 'blaze_rod') await fightMobs(ctx, 'blaze', back, skill.radius, deadline, stats)
         else if (key === 'barter') await barter(ctx, back, skill.radius, deadline, stats)
       }
@@ -301,7 +306,7 @@ const tripAction = {
     const gained = {}
     for (const i of bot.inventory.items()) gained[i.name] = (gained[i.name] || 0) + i.count
     const haul = Object.entries(gained).map(([k, v]) => [k, v - (startItems[k] || 0)]).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(', ')
-    return `back from the Nether${haul ? ` with ${haul}` : ' empty-handed'}${stats.kills ? `; killed ${stats.kills}` : ''}${stats.traded ? `; traded ${stats.traded} gold` : ''}${note ? `. ${note}` : ''}`
+    return `back from the Nether${haul ? ` with ${haul}` : ' empty-handed'}${stats.bastion ? `; raided the bastion at ${stats.bastion}` : ''}${stats.tunnel ? `; tunnelled ${stats.tunnel} blocks at the debris layer` : ''}${stats.kills ? `; killed ${stats.kills}` : ''}${stats.traded ? `; traded ${stats.traded} gold` : ''}${note ? `. ${note}` : ''}`
   }
 }
 

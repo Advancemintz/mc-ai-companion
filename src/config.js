@@ -32,12 +32,15 @@ const DEFAULTS = {
     memoryName: '',
     maxChainedSteps: 10,
     reconnect: true,
-    showThoughts: true
+    showThoughts: true,
+    // Human touches: pauses, gestures, fidgets, admiring builds. level 0 = none, 1 = lots.
+    mannerisms: { enabled: true, level: 0.5 }
   },
   // Feelings, ownership, theft detection, stealing and sabotage (src/brain/social.js has the
   // full defaults). Built for servers where the players are AI bots: list any humans in "protected".
   social: {},
   reflexes: {
+    hazards: true, // get out of lava and fire, dig out when smothered, cut free of cobwebs
     autoEat: true,
     selfDefense: true,
     defendRadius: 6,

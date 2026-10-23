@@ -244,20 +244,34 @@ async function farmRound (ctx, proj, skill) {
 // ------------------------------------------------------------------ actions
 
 const farmAction = {
-  description: 'Look after your crop farm near home: the first time it picks a plot (next to water, or with a water bucket at higher tiers it can make its own water), then each round it tills, plants, harvests ripe crops and replants. Needs a hoe and seeds (it pulls up grass for wheat seeds if needed). Optional crop: wheat, carrots, potatoes, beetroot (which ones you know depends on your farming tier).',
+  description: 'Look after your crop farm near home: the first time it picks a plot (next to water, or with a water bucket at higher tiers it can make its own water), then each round it tills, plants, harvests ripe crops and replants, and tends the melon/pumpkin patch and sugar cane if you have them. Needs a hoe and seeds (it pulls up grass for wheat seeds if needed). Optional crop: wheat, carrots, potatoes, beetroot, or (master farmers) melon, pumpkin, sugar_cane to start or tend that patch.',
   params: { crop: 'optional preferred crop' },
   timeoutSeconds: 900,
   run: async (ctx, { crop }) => {
     const { bot } = ctx
     const mem = ctx.memory
-    const skill = ctx.skills?.params('farming') || { plotRadius: 4, crops: Object.keys(CROPS), makeWater: true, fence: true, boneMeal: true }
-    let crops = skill.crops
+    const skill = ctx.skills?.params('farming') || { plotRadius: 4, crops: [...Object.keys(CROPS), 'melon', 'pumpkin', 'sugar_cane'], makeWater: true, fence: true, boneMeal: true }
+    const R = require('./ranch')
+    // Melons, pumpkins and sugar cane have their own patches next to the farm.
+    const side = String(crop || '').toLowerCase().trim().replace(/\s+/g, '_').replace(/s$/, '').replace(/^(sugar_?)?cane$/, 'sugar_cane').replace(/^sugarcane$/, 'sugar_cane')
+    if (['melon', 'pumpkin', 'sugar_cane'].includes(side)) {
+      if (!skill.crops.includes(side)) throw new Error(`I don't know how to grow ${side.replace('_', ' ')} yet; that comes with more farming. So far: ${skill.crops.join(', ')}`)
+      const st = { harvested: {}, planted: {}, notes: [] }
+      if (side === 'sugar_cane') await R.tendCane(ctx, st)
+      else await R.tendPatch(ctx, side, st)
+      const list = (o) => Object.entries(o).map(([k, v]) => `${v} ${k.replace('_', ' ')}`).join(', ')
+      const parts = [...st.notes]
+      if (Object.keys(st.harvested).length) parts.push(`harvested ${list(st.harvested)}`)
+      if (Object.keys(st.planted).length) parts.push(`planted ${list(st.planted)}`)
+      return (parts.join('; ') || `checked the ${side.replace('_', ' ')}: nothing ready yet`) + '.'
+    }
+    let crops = skill.crops.filter(c => CROPS[c])
     if (crop) {
       const c = String(crop).toLowerCase().replace(/s$/, '').replace(/^carrot$/, 'carrots').replace(/^potatoe?$/, 'potatoes').replace(/^beetroots?$/, 'beetroot')
       const name = CROPS[c] ? c : (CROPS[c + 's'] ? c + 's' : null)
       if (!name) throw new Error(`I don't know how to grow "${crop}". Crops: ${Object.keys(CROPS).join(', ')}`)
       if (!skill.crops.includes(name)) throw new Error(`I only know how to grow ${skill.crops.join(', ')} so far. (Farming more will teach me more crops.)`)
-      crops = [name, ...skill.crops.filter(c2 => c2 !== name)]
+      crops = [name, ...crops.filter(c2 => c2 !== name)]
     }
     // A hoe: craft a wooden one if we can.
     if (!bot.inventory.items().some(i => i.name.endsWith('_hoe'))) {
@@ -289,6 +303,15 @@ const farmAction = {
       mem?.saveProject('farm', proj)
     }
     const stats = await farmRound(ctx, proj, { ...skill, crops })
+    // Tend the side patches on the same round, like a player doing their farm chores.
+    for (const k of ['melon', 'pumpkin']) {
+      if (skill.crops.includes(k) && mem?.getProject(`${k}_patch`)) {
+        try { await R.tendPatch(ctx, k, stats) } catch (err) { if (err instanceof CancelledError) throw err; stats.notes.push(err.message) }
+      }
+    }
+    if (skill.crops.includes('sugar_cane') && mem?.getProject('cane')) {
+      try { await R.tendCane(ctx, stats) } catch (err) { if (err instanceof CancelledError) throw err; stats.notes.push(err.message) }
+    }
     if (first) ctx.skills?.award('farming', 10, 'started a farm')
     proj.lastRound = new Date().toISOString()
     mem?.saveProject('farm', proj)

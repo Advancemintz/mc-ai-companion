@@ -31,7 +31,7 @@ const newId = () => crypto.randomBytes(5).toString('hex')
 
 // Fields a bot card can set. Anything else in a request is ignored.
 const BOT_FIELDS = ['name', 'account', 'archetype', 'morals', 'personality', 'greeting', 'talents', 'startTier', 'startTiers',
-  'social', 'autonomous', 'idleThinkSeconds', 'respondTo', 'provider', 'model', 'notes']
+  'social', 'autonomous', 'idleThinkSeconds', 'respondTo', 'provider', 'model', 'notes', 'mannerisms']
 
 class Roster {
   constructor ({ root = process.cwd(), dir = 'bots', baseConfigFile = 'config.json' } = {}) {
@@ -115,7 +115,8 @@ class Roster {
       respondTo: b.respondTo === 'mention' ? 'mention' : 'all',
       provider: b.provider || '',
       model: String(b.model || '').trim(),
-      notes: String(b.notes || '').slice(0, 500)
+      notes: String(b.notes || '').slice(0, 500),
+      mannerisms: Number.isFinite(Number(b.mannerisms)) ? Math.max(0, Math.min(1, Number(b.mannerisms))) : 0.5
     }
     for (const id of SKILL_IDS) {
       const v = Number(b.talents?.[id])
@@ -237,6 +238,7 @@ class Roster {
       idleThinkSeconds: bot.idleThinkSeconds,
       respondTo: bot.respondTo,
       memoryName: bot.memoryName,
+      mannerisms: { enabled: bot.mannerisms > 0, level: bot.mannerisms },
       otherBots: [...new Set([...(cfg.bot.otherBots || []), ...others])],
       skills: { ...(cfg.bot.skills || {}), mode: 'natural', startTier: bot.startTier, startTiers: bot.startTiers, affinity: bot.talents }
     }

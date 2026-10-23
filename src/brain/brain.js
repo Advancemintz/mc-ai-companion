@@ -20,6 +20,7 @@ class Brain {
     this.admin = admin
     this.paused = false
     this.onQuit = null // set by index.js
+    this.onSaid = null // gestures (src/body/mannerisms.js)
     this.lastBotChatWake = 0
     this.idleStreak = 0 // how many times in a row the model chose to do nothing while idle
     this.lookaheadFor = null // the action we already planned ahead for
@@ -291,6 +292,7 @@ class Brain {
     const send = (c) => { try { this.bot.chat(c) } catch {} }
     chunks.forEach((c, i) => (i === 0 ? send(c) : setTimeout(() => send(c), i * 400)))
     log.chat(`<${this.bot.username}> ${chunks.join(' ')}`)
+    try { this.onSaid?.(chunks.join(' ')) } catch {}
   }
 
   // "!" commands skip the LLM entirely. Control commands are for server operators only.

@@ -115,10 +115,15 @@ function randomBot ({ rng = Math.random, taken = [], keep = {} } = {}) {
     like: pick(rng, ARCHETYPES[archetype].likes)
   })
   const greetings = [`${name} here. Let's get to work.`, `Hi all! ${name} has arrived.`, `...oh, hello.`, `Right, where's the good stuff?`, `Morning! Or is it night? Hard to tell.`, '']
+  // Lively characters fidget and gesture more; calm ones less.
+  const lively = traits.filter(t => /cheerful|dramatic|chaotic|anxious|boastful|competitive|optimistic|witty/.test(t)).length
+  const calm = traits.filter(t => /calm|serious|polite|shy|gloomy|lazy|perfectionist/.test(t)).length
+  const mannerisms = keep.mannerisms !== undefined ? keep.mannerisms : round1(Math.max(0.15, Math.min(0.95, 0.5 + 0.2 * lively - 0.15 * calm + (rng() - 0.5) * 0.2)))
   return {
     name,
     archetype,
     morals,
+    mannerisms,
     personality,
     greeting: keep.greeting !== undefined ? keep.greeting : pick(rng, greetings),
     talents: keep.talents || talentsFor(archetype, rng),

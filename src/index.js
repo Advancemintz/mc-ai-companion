@@ -20,6 +20,7 @@ const { Memory } = require('./brain/memory')
 const { startSenses } = require('./brain/senses')
 const { protectMovements } = require('./body/zones')
 const { startIdleBehaviors } = require('./body/idle')
+const { attachMannerisms } = require('./body/mannerisms')
 const { startRailOffers } = require('./brain/railOffers')
 const { SkillBook } = require('./skills/skillbook')
 const { Social } = require('./brain/social')
@@ -115,7 +116,8 @@ function createBot () {
     brain.onQuit = shutdown
     startReflexes(bot, executor, config, (text, wake) => brain.notify(text, wake))
     startSenses(bot, brain, config)
-    startIdleBehaviors(bot, executor)
+    startIdleBehaviors(bot, executor, config)
+    attachMannerisms(bot, executor, brain, config)
     startRailOffers(bot, brain, memory, config)
     startSocialSenses(bot, brain, social, config)
     current = { bot, brain, executor }

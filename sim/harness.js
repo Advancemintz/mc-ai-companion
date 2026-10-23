@@ -20,13 +20,17 @@ function registry () {
   const blocks = ['air', 'stone', 'cobblestone', 'dirt', 'grass_block', 'oak_log', 'birch_log', 'stripped_oak_log', 'iron_ore',
     'deepslate_iron_ore', 'crafting_table', 'furnace', 'chest', 'red_bed', 'oak_leaves', 'water', 'poppy', 'short_grass', 'coal_ore', 'oak_planks', 'birch_planks', 'glass', 'oak_door', 'torch', 'wall_torch', 'lava', 'bedrock', 'oak_slab', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder',
     'bookshelf', 'enchanting_table', 'farmland', 'wheat', 'carrots', 'potatoes', 'beetroots', 'oak_fence', 'obsidian', 'nether_portal', 'netherrack', 'nether_quartz_ore', 'stone_bricks', 'smoker', 'blast_furnace', 'barrel', 'composter', 'anvil', 'smithing_table', 'grindstone', 'stonecutter', 'loom', 'cartography_table', 'fletching_table', 'lectern', 'ender_chest', 'brewing_stand', 'cauldron', 'lantern',
-    'bell', 'spawner', 'mossy_cobblestone', 'cave_air', 'trapped_chest', 'crying_obsidian', 'chiseled_sandstone', 'sandstone', 'sand']
+    'bell', 'spawner', 'mossy_cobblestone', 'cave_air', 'trapped_chest', 'crying_obsidian', 'chiseled_sandstone', 'sandstone', 'sand',
+    'melon_stem', 'pumpkin_stem', 'melon', 'pumpkin', 'sugar_cane', 'oak_fence_gate', 'cobweb', 'gravel', 'fire', 'ancient_debris']
   const items = ['cobblestone', 'dirt', 'oak_log', 'birch_log', 'oak_planks', 'birch_planks', 'stick', 'crafting_table', 'wooden_pickaxe',
     'stone_pickaxe', 'iron_ingot', 'raw_iron', 'coal', 'furnace', 'bread', 'rotten_flesh', 'iron_sword', 'wooden_axe', 'stone_sword', 'glass', 'oak_door', 'torch', 'chest', 'red_bed', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'gold_ingot', 'redstone', 'minecart', 'ladder',
     'bookshelf', 'enchanting_table', 'wheat_seeds', 'wheat', 'carrot', 'potato', 'beetroot_seeds', 'beetroot', 'wooden_hoe', 'water_bucket', 'bucket', 'oak_fence', 'obsidian', 'flint_and_steel', 'bone_meal', 'netherrack', 'quartz', 'stone_bricks', 'smoker', 'blast_furnace', 'barrel', 'composter', 'anvil', 'smithing_table', 'grindstone', 'stonecutter', 'loom', 'cartography_table', 'fletching_table', 'lectern', 'ender_chest', 'brewing_stand', 'cauldron', 'lantern',
-    'bow', 'arrow', 'shield', 'golden_apple', 'diamond', 'emerald', 'cooked_beef', 'diamond_sword', 'sand']
+    'bow', 'arrow', 'shield', 'golden_apple', 'diamond', 'emerald', 'cooked_beef', 'diamond_sword', 'sand',
+    'melon_seeds', 'pumpkin_seeds', 'melon_slice', 'pumpkin', 'sugar_cane', 'oak_fence_gate', 'beef', 'porkchop', 'baked_potato',
+    'iron_pickaxe', 'iron_axe', 'iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots', 'diamond_pickaxe', 'stone_axe',
+    'ancient_debris', 'netherite_scrap', 'netherite_ingot', 'netherite_upgrade_smithing_template', 'netherite_sword', 'paper', 'cooked_porkchop']
   const r = { blocksByName: {}, itemsByName: {}, items: {}, blocks: {}, foodsByName: {
-    bread: { foodPoints: 5, saturation: 6 }, rotten_flesh: { foodPoints: 4, saturation: 0.8 }, golden_apple: { foodPoints: 4, saturation: 9.6 }, cooked_beef: { foodPoints: 8, saturation: 12.8 } } }
+    bread: { foodPoints: 5, saturation: 6 }, rotten_flesh: { foodPoints: 4, saturation: 0.8 }, golden_apple: { foodPoints: 4, saturation: 9.6 }, cooked_beef: { foodPoints: 8, saturation: 12.8 }, beef: { foodPoints: 3, saturation: 1.8 }, porkchop: { foodPoints: 3, saturation: 1.8 }, cooked_porkchop: { foodPoints: 8, saturation: 12.8 } } }
   blocks.forEach((n, i) => { r.blocksByName[n] = { id: i, name: n }; r.blocks[i] = r.blocksByName[n] })
   items.forEach((n, i) => { r.itemsByName[n] = { id: 1000 + i, name: n }; r.items[1000 + i] = r.itemsByName[n] })
   return r
@@ -40,7 +44,7 @@ function worldBot () {
   const propsMap = new Map()
   bot._props = propsMap
   const mk = (name, p) => ({ name, type: bot.registry.blocksByName[name].id, position: p.clone(), getProperties: () => propsMap.get(key(p)) || {},
-    boundingBox: ['air', 'water', 'lava', 'poppy', 'short_grass', 'torch', 'wall_torch', 'oak_door', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder', 'wheat', 'carrots', 'potatoes', 'beetroots', 'nether_portal', 'lantern'].includes(name) ? 'empty' : 'block', diggable: name !== 'air' && name !== 'water' })
+    boundingBox: ['air', 'cave_air', 'fire', 'cobweb', 'sugar_cane', 'melon_stem', 'pumpkin_stem', 'oak_fence_gate', 'water', 'lava', 'poppy', 'short_grass', 'torch', 'wall_torch', 'oak_door', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder', 'wheat', 'carrots', 'potatoes', 'beetroots', 'nether_portal', 'lantern'].includes(name) ? 'empty' : 'block', diggable: name !== 'air' && name !== 'water' })
   bot.setBlock = (p, name) => world.set(key(p), name)
   bot.blockAt = (p) => { p = p.floored(); return mk(world.get(key(p)) || (p.y < 64 ? 'stone' : 'air'), p) }
   for (let x = -20; x <= 20; x++) for (let z = -20; z <= 20; z++) bot.setBlock(new Vec3(x, 63, z), 'grass_block')
@@ -83,7 +87,7 @@ function worldBot () {
   bot.placeBlock = async (ref, face) => {
     const held = bot.heldItem
     const dest = ref.position.plus(face)
-    const CROP = { wheat_seeds: 'wheat', carrot: 'carrots', potato: 'potatoes', beetroot_seeds: 'beetroots' }
+    const CROP = { wheat_seeds: 'wheat', carrot: 'carrots', potato: 'potatoes', beetroot_seeds: 'beetroots', melon_seeds: 'melon_stem', pumpkin_seeds: 'pumpkin_stem' }
     if (CROP[held.name]) {
       if (world.get(key(ref.position)) !== 'farmland') throw new Error('seeds need farmland')
       bot.setBlock(dest, CROP[held.name]); propsMap.set(key(dest), { age: 0 })
@@ -170,6 +174,54 @@ function worldBot () {
         give(slot.name, count)
       },
       close: () => { bot.currentWindow = null }
+    }
+  }
+  // Crafting: bot.addRecipes({ iron_pickaxe: { table: true, gives: 1, needs: { iron_ingot: 3, stick: 2 } } })
+  const recipes = {}
+  const reg = bot.registry
+  bot.addRecipes = (map) => {
+    for (const [name, r] of Object.entries(map)) {
+      const delta = Object.entries(r.needs).map(([n, c]) => ({ id: reg.itemsByName[n].id, count: -c }))
+      delta.push({ id: reg.itemsByName[name].id, count: r.gives || 1 })
+      recipes[reg.itemsByName[name].id] = [{ result: { count: r.gives || 1 }, requiresTable: !!r.table, delta }]
+    }
+  }
+  bot.recipesAll = (id, m, table) => (recipes[id] || []).filter(r => !r.requiresTable || table)
+  bot.recipesFor = (id, m, n, table) => bot.recipesAll(id, m, table).filter(r =>
+    r.delta.every(d => d.count >= 0 || bot.inventory.count(d.id) + d.count * Math.ceil((n || 1) / r.result.count) >= 0))
+  bot.crafted = []
+  bot.craft = async (r, times) => {
+    for (const d of r.delta) {
+      const name = reg.items[d.id].name
+      if (d.count > 0) { give(name, d.count * times); bot.crafted.push(name) } else {
+        let left = -d.count * times
+        for (const it of bot._items.filter(i => i.name === name)) { const t = Math.min(left, it.count); it.count -= t; left -= t }
+        for (let i = bot._items.length - 1; i >= 0; i--) if (bot._items[i].count <= 0) bot._items.splice(i, 1)
+      }
+    }
+  }
+  // Furnaces (and smokers, blast furnaces): bot.setSmelting({ beef: 'cooked_beef' }); output appears at once.
+  let smelting = {}
+  bot.setSmelting = (map) => { smelting = map }
+  bot.usedStations = []
+  bot.openFurnace = async (block) => {
+    bot.usedStations.push(block.name)
+    let input = null; let output = null; let fuel = null
+    return {
+      fuel: 0,
+      outputItem: () => output,
+      inputItem: () => input,
+      fuelItem: () => fuel,
+      takeOutput: async () => { const o = output; output = null; if (o) give(o.name, o.count); return o },
+      takeInput: async () => { const i = input; input = null; if (i) give(i.name, i.count); return i },
+      putFuel: async (type, m, n) => { const name = reg.items[type].name; use(name); for (let k = 1; k < n; k++) use(name); fuel = { name, count: n } },
+      putInput: async (type, m, n) => {
+        const name = reg.items[type].name
+        for (let k = 0; k < n; k++) use(name)
+        input = { name, count: n }
+        if (smelting[name]) { output = { name: smelting[name], count: n, type: reg.itemsByName[smelting[name]].id }; input = null }
+      },
+      close: () => {}
     }
   }
   bot.collectBlock.collect = async (block) => {

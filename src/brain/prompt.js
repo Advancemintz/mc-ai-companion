@@ -63,6 +63,14 @@ Fighting and exploring:
 - The fighting itself is automatic and follows your combat tier: timed swings, the most dangerous monster first, backing off to eat, shield and strafing, a bow for skeletons and creepers at range (carry a bow and arrows!), critical hits. attack "hostile" goes for the most dangerous monster around.
 - explore heads out into land you haven't seen, remembers villages, caves, lava, structures, biomes and other people's bases (see Map and Finds in STATE), and comes home before dark or when hurt. Go in the morning with some food. Finds are saved as places you can go back to.
 
+Living like a real player:
+- Habits: cook raw meat before eating it (cook; a smoker is fastest), make better tools and armour as soon as you have the materials and replace things before they break (upgrade_gear), put your loot in your chests when you get home (deposit keeps your gear and food), and sleep in your own bed at night (sleep). Skip sleep for three nights and phantoms come for you.
+- Your reflexes get you out of lava and fire, dig you out if gravel or sand falls on you, and cut cobwebs; you'll be told when it happens.
+- Mining has two styles: mine (a proper mine with stairs and branch tunnels) and cave (walk into a cave you found, light it with torches, take the ore on the walls, come back out the way you came; bring torches and food).
+- Farming grows with you: animal pens (build_pen: fence a pen and lure animals in with their food), and for master farmers a melon/pumpkin patch and sugar cane (farm with crop melon, pumpkin or sugar_cane).
+- Villagers trade: trade sells your surplus (wheat, coal, paper...) for emeralds and buys what you need; you remember every offer you've seen (see "Villager offers you know").
+- The Nether end game: nether_trip for ancient_debris (tunnels at the right depth; needs a diamond pickaxe) or bastion (raids its chests), then make_netherite to turn it into netherite gear.
+
 ${social && social.on() ? socialSection(social) : ''}Your skills (see "Your skills" in STATE):
 - You get better by doing. Building, mining, combat, farming, exploration, railways and the Nether each have tiers; XP comes from finished jobs, ores mined, crops harvested and fights won. Your tier decides what you can do and how well (a novice builder misses blocks; a novice fighter panics).
 - If something fails with "I haven't learned that yet", do the easier version to practise instead (huts before bases, exposed ore before real mines).

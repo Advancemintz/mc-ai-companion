@@ -150,7 +150,7 @@ module.exports = { TARGETS, BONUS, resolveTarget, shaftCells, chooseMineSite, br
 
 // The action itself lives here too, to keep mining logic in one place.
 module.exports.mineAction = {
-  description: 'Mine ores or stone the proper way: picks a spot away from bases, digs a clean covered stairwell (with doors and torches) down to the best depth for the target, then branch-mines there, digging out every vein it finds. Remembers the mine and digs further on every call. target: coal, copper, iron, lapis, gold, redstone, diamond, emerald or stone. count: how many target blocks to get this trip (default 8).',
+  description: 'Mine ores or stone the proper way: picks a spot away from bases, digs a clean covered stairwell (with doors and torches) down to the best depth for the target, then branch-mines there (strip-mines at the top tier), digging out every vein it finds. Remembers the mine and digs further on every call. target: coal, copper, iron, lapis, gold, redstone, diamond, emerald or stone. count: how many target blocks to get this trip (default 8).',
   params: { target: 'coal | copper | iron | lapis | gold | redstone | diamond | emerald | stone', count: 'how many (default 8)' },
   timeoutSeconds: 3000,
   run: async (ctx, args) => {
@@ -242,6 +242,10 @@ module.exports.mineAction = {
     while (gotTarget < wanted && steps < 90) {
       ctx.check()
       if (bot.inventory.emptySlotCount() <= 1) { stats.warnings.add('inventory full'); break }
+      // Stop before the last good pickaxe breaks, like anyone who doesn't want to walk home empty-handed.
+      if (!bot.inventory.items().some(i => i.name.endsWith('_pickaxe') && (() => { const d = require('./survival').durability(bot, i); return !d || d.left > 4 })())) {
+        stats.warnings.add('stopped because my pickaxe is about to break (make a new one with upgrade_gear)'); break
+      }
       const step = gen.next().value
       for (const p of step.cells) {
         const b = bot.blockAt(p)

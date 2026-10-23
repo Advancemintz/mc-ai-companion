@@ -18,6 +18,10 @@ function projectBox (proj) {
     const c = proj.center; const r = (proj.radius || 2) + 1
     return { min: new Vec3(c.x - r, c.y - 1, c.z - r), max: new Vec3(c.x + r, c.y + 3, c.z + r) }
   }
+  if ((proj.style === 'pen' || proj.style === 'patch') && proj.corner) {
+    const c = proj.corner; const w = proj.style === 'pen' ? 7 : 7; const d = proj.style === 'pen' ? 7 : 3
+    return { min: new Vec3(c.x - 1, c.y - 1, c.z - 1), max: new Vec3(c.x + w, c.y + 3, c.z + d) }
+  }
   if (!proj.origin || !proj.f) return null
   const origin = new Vec3(proj.origin.x, proj.origin.y, proj.origin.z)
   const f = new Vec3(proj.f.x, 0, proj.f.z)

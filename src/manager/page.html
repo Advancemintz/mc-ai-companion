@@ -458,6 +458,8 @@ function renderCharacter (panel) {
   wireSave()
 }
 
+function manWords (v) { return v <= 0 ? 'none' : v < 0.35 ? 'a few' : v < 0.7 ? 'some' : 'lots' }
+
 function mergeSocial (cur = {}, add = {}) {
   const out = structuredClone(cur || {})
   for (const [k, v] of Object.entries(add)) out[k] = { ...(out[k] || {}), ...v }
@@ -467,10 +469,11 @@ function mergeSocial (cur = {}, add = {}) {
 async function roll (locks) {
   const keep = {}
   for (const k of locks) keep[k] = draft[k]
+  if (locks.includes('personality')) keep.mannerisms = draft.mannerisms
   try {
     const { bot: r } = await api('POST', '/api/random', { id: draft.id, keep })
     // A new name is only taken if it wasn't locked; the personality text mentions the name.
-    Object.assign(draft, { name: r.name, archetype: r.archetype, morals: r.morals, personality: r.personality, greeting: r.greeting, talents: r.talents })
+    Object.assign(draft, { name: r.name, archetype: r.archetype, morals: r.morals, personality: r.personality, greeting: r.greeting, talents: r.talents, mannerisms: r.mannerisms })
     if (!locks.includes('morals')) draft.social = mergeSocial(draft.social, r.social)
     markDirty()
     renderMain()
@@ -525,6 +528,8 @@ function renderBrain (panel) {
           <label class="f">Model <small>Empty uses the provider's model.</small><input type="text" id="fModel" value="${esc(d.model)}"></label>
           <label class="check"><input type="checkbox" id="fAuto" ${d.autonomous ? 'checked' : ''}> Acts on its own when nobody needs it</label>
           <label class="f">Seconds idle before it decides something itself <small>Higher is cheaper with cloud AI.</small><input type="number" id="fIdle" min="3" max="600" value="${d.idleThinkSeconds}"></label>
+          <label class="f"><span>Human touches: <span id="fManV">${manWords(d.mannerisms ?? 0.5)}</span></span><small>Pauses, gestures, fidgeting, stepping back to admire a build. None makes it efficient but robotic.</small>
+            <input type="range" id="fMan" min="0" max="1" step="0.1" value="${d.mannerisms ?? 0.5}"></label>
           <label class="f">Answers chat <select id="fResp"><option value="all" ${d.respondTo === 'all' ? 'selected' : ''}>from everyone</option><option value="mention" ${d.respondTo === 'mention' ? 'selected' : ''}>only when its name is mentioned</option></select></label>
         </div>
       </fieldset>
@@ -549,6 +554,7 @@ function renderBrain (panel) {
   $('#fAuto').onchange = (e) => { d.autonomous = e.target.checked; markDirty() }
   $('#fIdle').oninput = (e) => { d.idleThinkSeconds = Number(e.target.value); markDirty() }
   $('#fResp').onchange = (e) => { d.respondTo = e.target.value; markDirty() }
+  $('#fMan').oninput = (e) => { d.mannerisms = Number(e.target.value); $('#fManV').textContent = manWords(d.mannerisms); markDirty() }
   $('#sSteal').onchange = (e) => set('stealing', 'enabled', e.target.checked)
   $('#sSab').onchange = (e) => set('sabotage', 'enabled', e.target.checked)
   $('#sStealR').oninput = (e) => { $('#sStealV').textContent = e.target.value; set('stealing', 'feelingAtMost', Number(e.target.value)) }

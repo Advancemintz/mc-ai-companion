@@ -68,6 +68,23 @@ function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
   if (wearing === 0 && pick >= 3) add('someday', 'no armor: iron armor would keep you alive')
   if (!hasItem(bot, /^torch$/) && pick >= 2) add('someday', 'no torches: coal + sticks make torches for caves and night')
 
+  // Habits: gear that's about to break, better gear you could make, raw food, sleep, loot.
+  const SV = require('../body/survival')
+  for (const w of SV.wornGear(bot).slice(0, 2)) add('soon', `your ${w.name} is nearly broken (${w.left} uses left): make a new one (upgrade_gear) before it breaks`)
+  const gear = SV.gearPlan(bot)
+  if (gear.length) add('someday', `you could craft better gear right now: ${gear.slice(0, 3).map(g => g.item).join(', ')} (upgrade_gear)`)
+  const raw = SV.rawFood(bot)
+  const rawN = Object.values(raw).reduce((a, b) => a + b, 0)
+  if (rawN >= 3) add(SV.readyFood(bot) < 20 ? 'soon' : 'someday', `you have raw food (${Object.entries(raw).map(([k, v]) => `${v} ${k}`).join(', ')}): cook it, it fills you up far more`)
+  if (memory?.data && bot.time?.age !== undefined) {
+    const today = Math.floor(bot.time.age / 24000)
+    const last = memory.data.lastSleptDay ?? memory.data.firstSeenDay ?? today
+    if (memory.data.firstSeenDay === undefined) { memory.data.firstSeenDay = today; memory.save?.() }
+    const nights = today - last
+    if (nights >= 3) add(night ? 'urgent' : 'soon', `you haven't slept for ${nights} nights: phantoms will start swooping at you. Sleep in a bed tonight`)
+  }
+  if (home && homeDist !== null && homeDist <= 16 && SV.lootCount(bot) >= 48) add('soon', 'you are home with lots of loot in your pockets: put it away in your chests (deposit)')
+
   // Home & storage
   const canBase = !skills || skills.tier('building') >= 2
   if (!home) add('someday', canBase ? 'no home base yet: build one with build_base (surface house or underground), or a quick hut for now' : 'no home yet: build a hut (you are still learning to build; proper bases come later)')

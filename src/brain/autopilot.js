@@ -22,6 +22,17 @@ function chooseActivity (bot, { memory, skills = null } = {}) {
   const cover = T.cover(bot).kind
   const outside = cover === 'outdoors' || cover === 'under trees'
 
+  const SV = require('../body/survival')
+  const homeDist = home ? Math.hypot(home.x - pos.x, home.z - pos.z) : Infinity
+  const near = (names, r) => {
+    const ids = names.map(n => bot.registry.blocksByName[n]?.id).filter(x => x !== undefined)
+    return ids.length ? bot.findBlock({ matching: ids, maxDistance: r }) : null
+  }
+  // 0. Night at home: go to bed, like everyone else.
+  if (night && homeDist <= 16) {
+    const beds = Object.keys(bot.registry.blocksByName).filter(n => n.endsWith('_bed'))
+    if (near(beds, 24) || bot.inventory.items().some(i => i.name.endsWith('_bed'))) return { plan: [{ name: 'sleep', args: {} }], why: 'it is night and home is right here, so it is bedtime' }
+  }
   // 1. Night: get home / under cover.
   if (night && outside) {
     if (home && Math.hypot(home.x - pos.x, home.z - pos.z) > 6) return { plan: [{ name: 'go_to_place', args: { name: 'home' } }], why: 'it is night, heading home' }
@@ -29,6 +40,20 @@ function chooseActivity (bot, { memory, skills = null } = {}) {
   }
   // 2. Full inventory.
   if (bot.inventory.emptySlotCount() <= 4) return { plan: [{ name: 'clean_inventory', args: {} }], why: 'inventory is nearly full' }
+  // 2b. Back home with pockets full of loot: put it away.
+  if (homeDist <= 16 && SV.lootCount(bot) >= 48 && near(['chest', 'barrel'], 16)) return { plan: [{ name: 'deposit', args: {} }], why: 'putting the loot away now that you are home' }
+  // 2c. Raw food and somewhere to cook it.
+  const raw = Object.values(SV.rawFood(bot)).reduce((a, b) => a + b, 0)
+  const fuel = bot.inventory.items().some(i => /^(coal|charcoal)$|_planks$|_log$/.test(i.name))
+  if (raw >= 4 && fuel && Date.now() - (bot._lastCookTry || 0) > 10 * 60000 && (near(['smoker', 'furnace'], 24) || bot.inventory.items().some(i => i.name === 'furnace' || i.name === 'smoker'))) {
+    bot._lastCookTry = Date.now()
+    return { plan: [{ name: 'cook', args: {} }], why: 'cooking the raw food you are carrying' }
+  }
+  // 2d. Better gear is one crafting session away (or something is about to break).
+  if (Date.now() - (bot._lastGearTry || 0) > 10 * 60000 && (SV.wornGear(bot).length || SV.gearPlan(bot).some(g => /pickaxe|sword|chestplate/.test(g.item)))) {
+    bot._lastGearTry = Date.now()
+    return { plan: [{ name: 'upgrade_gear', args: {} }], why: 'sorting out your gear' }
+  }
   // 3. Unfinished base and enough material to make progress.
   const unfinished = memory?.unfinishedProjects?.() || []
   if (unfinished.length && countMatching(bot, BUILDING) >= 30) return { plan: [{ name: 'build_base', args: { name: unfinished[0].name } }], why: `continuing the unfinished base "${unfinished[0].name}"` }

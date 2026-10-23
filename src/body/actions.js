@@ -513,8 +513,15 @@ actions.craft = {
   }
 }
 
+// Which station a player reaches for: a smoker for food, a blast furnace for ores, else a furnace.
+function stationsFor (name) {
+  if (require('./survival').RAW_FOOD[name]) return ['smoker', 'furnace']
+  if (/^raw_(iron|gold|copper)$|_ore$|^ancient_debris$/.test(name)) return ['blast_furnace', 'furnace']
+  return ['furnace']
+}
+
 actions.smelt = {
-  description: 'Smelt or cook items in a furnace (places one if you carry it). Example: raw_iron -> iron_ingot, sand -> glass, beef -> cooked_beef. Uses coal, charcoal, planks or logs as fuel.',
+  description: 'Smelt or cook items (places a furnace if you carry one). Example: raw_iron -> iron_ingot, sand -> glass, beef -> cooked_beef. Uses a smoker for food and a blast furnace for ore when there is one (twice as fast). Uses coal, charcoal, planks or logs as fuel.',
   params: { item: 'item to smelt', count: 'how many (default: all you have, max 64)' },
   timeoutSeconds: 900,
   run: async (ctx, { item, count }) => {
@@ -525,14 +532,18 @@ actions.smelt = {
     const wanted = clamp(Math.round(num(count, have)), 1, Math.min(have, 64))
 
     let tempFurnace = false
-    let furnaceBlock = findNearestBlock(bot, ['furnace'], 32)
+    const stations = stationsFor(input.name)
+    let furnaceBlock = null
+    for (const st of stations) { furnaceBlock = findNearestBlock(bot, [st], 32); if (furnaceBlock) break }
     if (!furnaceBlock) {
-      if (!bot.inventory.items().find(i => i.name === 'furnace')) {
+      const carried = stations.find(st => bot.inventory.items().some(i => i.name === st))
+      if (!carried) {
         throw new Error('there is no furnace nearby and I am not carrying one (craft one from 8 cobblestone)')
       }
-      furnaceBlock = await placeUtilityBlock(ctx, 'furnace')
+      furnaceBlock = await placeUtilityBlock(ctx, carried)
       tempFurnace = isTemporarySpot(ctx, furnaceBlock.position)
     }
+    const fast = furnaceBlock.name !== 'furnace' // smokers and blast furnaces work twice as fast
 
     const fuels = bot.inventory.items().filter(i => i.name !== input.name && fuelValue(i.name) > 0)
       .sort((a, b) => fuelValue(b.name) - fuelValue(a.name))
@@ -558,7 +569,7 @@ actions.smelt = {
       if (existingInput && existingInput.name !== input.name) await furnace.takeInput()
       await furnace.putInput(input.type, null, wanted)
 
-      const deadline = Date.now() + wanted * 11000 + 15000
+      const deadline = Date.now() + wanted * (fast ? 6000 : 11000) + 15000
       let lastProgress = Date.now()
       while (got < wanted && Date.now() < deadline) {
         await ctx.sleep(1000)
@@ -581,7 +592,7 @@ actions.smelt = {
     if (!got) throw new Error('nothing came out of the furnace (out of fuel, or that item cannot be smelted)')
     let note = ''
     if (tempFurnace && got >= wanted && await pickBackUp(ctx, furnaceBlock)) note = ' (picked the furnace back up)'
-    return `smelted ${got} ${outName}` + (got < wanted ? ` (${wanted - got} left in the furnace)` : '') + note
+    return `smelted ${got} ${outName}${furnaceBlock.name !== 'furnace' ? ` in the ${furnaceBlock.name.replace('_', ' ')}` : ''}` + (got < wanted ? ` (${wanted - got} left in the furnace)` : '') + note
   }
 }
 
@@ -1044,13 +1055,24 @@ actions.sleep = {
   run: async (ctx) => {
     const { bot } = ctx
     const bedNames = Object.keys(bot.registry.blocksByName).filter(n => n.endsWith('_bed'))
-    const bed = findNearestBlock(bot, bedNames, 48)
-    if (!bed) throw new Error('no bed within 48 blocks')
+    const ids = bedNames.map(n => bot.registry.blocksByName[n].id)
+    // Your own bed, or one nobody owns. Sleeping in someone else's bed would move your respawn point to their house.
+    let bed = bot.findBlocks({ matching: ids, maxDistance: 48, count: 20 }).map(p => bot.blockAt(p))
+      .find(b => b && (!SN.ownerOf(ctx, b.position) || SN.ownerOf(ctx, b.position).how === 'mine'))
+    if (!bed && bot.inventory.items().some(i => i.name.endsWith('_bed'))) {
+      const carried = bot.inventory.items().find(i => i.name.endsWith('_bed'))
+      bed = await placeUtilityBlock(ctx, carried.name)
+    }
+    if (!bed) throw new Error('no bed of my own within 48 blocks (and I am not carrying one)')
+    const t = bot.time?.timeOfDay ?? 0
+    if (!(t >= 12542 && t <= 23459) && !bot.thunderState) throw new Error("it's not night yet; you can only sleep at night or in a thunderstorm")
+    if (C.nearbyThreats(bot, 8).length) throw new Error('monsters are nearby; I can\'t sleep now')
     await goto(ctx, new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2), 60000)
     await bot.sleep(bed)
     ctx.setStatus('sleeping')
+    if (ctx.memory) { ctx.memory.data.lastSleptDay = Math.floor((bot.time?.age ?? 0) / 24000) + 1; ctx.memory.save() }
     while (bot.isSleeping) await ctx.sleep(1000)
-    return 'slept and woke up'
+    return `slept in the bed at ${fmtPos(bed.position)} and woke up`
   }
 }
 
@@ -1255,15 +1277,24 @@ actions.note_player = {
 }
 
 actions.mine = require('./mining').mineAction
+actions.cave = require('./caving').caveAction
 
 const FARM = require('./farming')
 actions.farm = FARM.farmAction
 actions.breed_animals = FARM.breedAction
+actions.build_pen = require('./ranch').buildPenAction
 const NETHER = require('./nether')
 actions.build_portal = NETHER.portalAction
 actions.nether_trip = NETHER.tripAction
+actions.make_netherite = require('./netherite').makeNetheriteAction
+actions.trade = require('./trading').tradeAction
 
 actions.explore = require('./explore').exploreAction
+
+// ---- survival habits
+const SV = require('./survival')
+actions.cook = SV.cookAction
+actions.upgrade_gear = SV.upgradeGearAction
 
 // ---- social life: whose is what, feelings, and (when allowed) a little mischief
 actions.whose = SN.whoseAction
