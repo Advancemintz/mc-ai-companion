@@ -269,6 +269,47 @@ const SKILLS = {
     ]
   },
 
+  // Enchanting params (read by src/body/enchanting.js):
+  //   waitForBest  hold off until it can afford the table's best offer (otherwise take what it can afford)
+  //   priorities   enchant gear in the order that matters (pickaxe, sword, chestplate...) instead of whatever's in hand
+  //   anvil        put enchanted books on gear, repair gear and rename things at an anvil
+  //   readOffers   choose the offer by the enchantment it shows, not just the most expensive slot
+  //   mending      plan Mending gear: put Mending on the best gear first and remember where to buy it
+  enchanting: {
+    label: 'Enchanting',
+    about: 'enchanting tables, books and anvils',
+    tiers: [
+      {
+        name: 'Dabbler',
+        xp: 0,
+        can: 'use an enchanting table with `enchant` (needs a table, lapis and some XP levels): you take the best offer you can afford right away',
+        next: 'enchant a few things; bookshelves around the table make the offers better',
+        params: { waitForBest: false, priorities: false, anvil: false, readOffers: false, mending: false }
+      },
+      {
+        name: 'Enchanter',
+        xp: 60,
+        can: 'patient enchanting: you save your XP until you can afford the table\'s best offer (level 30 with all 15 bookshelves) and enchant your gear in the order that matters (pickaxe, sword, chestplate...)',
+        next: 'enchant your main gear at level 30',
+        params: { waitForBest: true, priorities: true, anvil: false, readOffers: false, mending: false }
+      },
+      {
+        name: 'Arcanist',
+        xp: 250,
+        can: 'anvil work with `anvil`: put enchanted books on the right gear, repair worn gear (with its material or a second copy) and name things',
+        next: 'collect books and keep your best gear repaired',
+        params: { waitForBest: true, priorities: true, anvil: true, readOffers: false, mending: false }
+      },
+      {
+        name: 'Mending master',
+        xp: 700,
+        can: 'you read the table\'s offers and pick by enchantment, not just price, and you plan Mending gear: Mending goes on your best gear first, and you remember which librarian sells it',
+        next: 'top tier: keep everything mended',
+        params: { waitForBest: true, priorities: true, anvil: true, readOffers: true, mending: true }
+      }
+    ]
+  },
+
   nether: {
     label: 'The Nether',
     about: 'portals, and surviving and gathering in the Nether',
@@ -332,7 +373,9 @@ const ACTION_SKILLS = {
   build_pen: { skill: 'farming', minTier: 3 },
   build_portal: { skill: 'nether', minTier: 1 },
   nether_trip: { skill: 'nether', minTier: 1 },
-  make_netherite: { skill: 'nether', minTier: 5 }
+  make_netherite: { skill: 'nether', minTier: 5 },
+  enchant: { skill: 'enchanting', minTier: 1 },
+  anvil: { skill: 'enchanting', minTier: 3 }
 }
 
 module.exports = { SKILLS, ACTION_SKILLS }

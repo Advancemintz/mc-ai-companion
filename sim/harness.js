@@ -28,7 +28,7 @@ function registry () {
     'bow', 'arrow', 'shield', 'golden_apple', 'diamond', 'emerald', 'cooked_beef', 'diamond_sword', 'sand',
     'melon_seeds', 'pumpkin_seeds', 'melon_slice', 'pumpkin', 'sugar_cane', 'oak_fence_gate', 'beef', 'porkchop', 'baked_potato',
     'iron_pickaxe', 'iron_axe', 'iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots', 'diamond_pickaxe', 'stone_axe',
-    'ancient_debris', 'netherite_scrap', 'netherite_ingot', 'netherite_upgrade_smithing_template', 'netherite_sword', 'paper', 'cooked_porkchop']
+    'ancient_debris', 'netherite_scrap', 'netherite_ingot', 'netherite_upgrade_smithing_template', 'netherite_sword', 'paper', 'cooked_porkchop', 'lapis_lazuli', 'enchanted_book']
   const r = { blocksByName: {}, itemsByName: {}, items: {}, blocks: {}, foodsByName: {
     bread: { foodPoints: 5, saturation: 6 }, rotten_flesh: { foodPoints: 4, saturation: 0.8 }, golden_apple: { foodPoints: 4, saturation: 9.6 }, cooked_beef: { foodPoints: 8, saturation: 12.8 }, beef: { foodPoints: 3, saturation: 1.8 }, porkchop: { foodPoints: 3, saturation: 1.8 }, cooked_porkchop: { foodPoints: 8, saturation: 12.8 } } }
   blocks.forEach((n, i) => { r.blocksByName[n] = { id: i, name: n }; r.blocks[i] = r.blocksByName[n] })

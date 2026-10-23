@@ -54,6 +54,16 @@ function chooseActivity (bot, { memory, skills = null } = {}) {
     bot._lastGearTry = Date.now()
     return { plan: [{ name: 'upgrade_gear', args: {} }], why: 'sorting out your gear' }
   }
+  // 2e. Levels saved up, lapis in pocket, a table at home: enchant something.
+  const ench = skills?.params?.('enchanting')
+  if (ench && bot.experience && homeDist <= 24 && bot.inventory.items().some(i => i.name === 'lapis_lazuli') && Date.now() - (bot._lastEnchantTry || 0) > 10 * 60000) {
+    const EN = require('../body/enchanting')
+    const table = near(['enchanting_table'], 32)
+    if (table && EN.enchantCandidates(bot).length && bot.experience.level >= (ench.waitForBest ? EN.bestLevelFor(EN.bookshelfPower(bot, table.position)) : 5)) {
+      bot._lastEnchantTry = Date.now()
+      return { plan: [{ name: 'enchant', args: {} }], why: 'spending your saved-up levels at the enchanting table' }
+    }
+  }
   // 3. Unfinished base and enough material to make progress.
   const unfinished = memory?.unfinishedProjects?.() || []
   if (unfinished.length && countMatching(bot, BUILDING) >= 30) return { plan: [{ name: 'build_base', args: { name: unfinished[0].name } }], why: `continuing the unfinished base "${unfinished[0].name}"` }

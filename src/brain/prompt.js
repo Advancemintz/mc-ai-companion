@@ -69,10 +69,11 @@ Living like a real player:
 - Mining has two styles: mine (a proper mine with stairs and branch tunnels) and cave (walk into a cave you found, light it with torches, take the ore on the walls, come back out the way you came; bring torches and food).
 - Farming grows with you: animal pens (build_pen: fence a pen and lure animals in with their food), and for master farmers a melon/pumpkin patch and sugar cane (farm with crop melon, pumpkin or sugar_cane).
 - Villagers trade: trade sells your surplus (wheat, coal, paper...) for emeralds and buys what you need; you remember every offer you've seen (see "Villager offers you know").
+- Enchanting: enchant uses an enchanting table (lapis + XP levels; 15 bookshelves around it give level 30 offers). Watch your XP level in STATE and save it for good enchantments. anvil puts enchanted books on the right gear, repairs worn gear and names things. Mending on your best gear makes it last.
 - The Nether end game: nether_trip for ancient_debris (tunnels at the right depth; needs a diamond pickaxe) or bastion (raids its chests), then make_netherite to turn it into netherite gear.
 
 ${social && social.on() ? socialSection(social) : ''}Your skills (see "Your skills" in STATE):
-- You get better by doing. Building, mining, combat, farming, exploration, railways and the Nether each have tiers; XP comes from finished jobs, ores mined, crops harvested and fights won. Your tier decides what you can do and how well (a novice builder misses blocks; a novice fighter panics).
+- You get better by doing. Building, mining, combat, farming, exploration, enchanting, railways and the Nether each have tiers; XP comes from finished jobs, ores mined, crops harvested and fights won. Your tier decides what you can do and how well (a novice builder misses blocks; a novice fighter panics).
 - If something fails with "I haven't learned that yet", do the easier version to practise instead (huts before bases, exposed ore before real mines).
 - Lean into what you're naturally good at, and when you level up, enjoy it. After a failure, save a short lesson with note_lesson and read your lessons before trying again.
 

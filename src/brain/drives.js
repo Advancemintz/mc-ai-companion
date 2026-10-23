@@ -83,6 +83,29 @@ function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
     const nights = today - last
     if (nights >= 3) add(night ? 'urgent' : 'soon', `you haven't slept for ${nights} nights: phantoms will start swooping at you. Sleep in a bed tonight`)
   }
+  // Enchanting: spend saved-up levels, and know where Mending is sold.
+  const ench = skills ? skills.params('enchanting') : null
+  if (ench && bot.experience && bot.registry.blocksByName?.enchanting_table) {
+    const EN = require('../body/enchanting')
+    const tableId = bot.registry.blocksByName.enchanting_table.id
+    const table = bot.findBlock?.({ matching: tableId, maxDistance: 48 })
+    const lv = bot.experience.level
+    const lapis = bot.inventory.items().some(i => i.name === 'lapis_lazuli')
+    const gear = EN.enchantCandidates(bot, { priorities: true })
+    if (table && gear.length) {
+      const target = ench.waitForBest ? EN.bestLevelFor(EN.bookshelfPower(bot, table.position)) : 1
+      if (lv >= target && lapis) add('someday', `you're level ${lv} with lapis and an enchanting table nearby: enchant your ${gear[0].name}`)
+      else if (lv >= target && !lapis) add('someday', `you're level ${lv} but have no lapis to enchant with (lapis is found around y 0)`)
+      else if (lv >= 10 && ench.waitForBest) add('someday', `you're saving XP for enchanting (level ${lv}/${target}): mining coal, redstone and lapis, smelting and fighting all give XP`)
+    }
+    if (ench.anvil && bot.inventory.items().some(i => i.name === 'enchanted_book') && EN.bookPlan(bot, { mending: ench.mending }).length) add('someday', 'you carry enchanted books that would fit your gear: put them on at an anvil (anvil)')
+    if (ench.mending && memory) {
+      const T = require('../body/trading')
+      const has = [...bot.inventory.items(), ...[5, 6, 7, 8].map(s => bot.inventory.slots?.[s]).filter(Boolean)].some(i => EN.enchantsOf(i).some(e => e.name === 'mending'))
+      const offer = T.findInTradeBook(memory, 'enchanted_book').find(o => /mending/.test(o.get))
+      if (!has && offer) add('someday', `a villager at ${offer.at} sells ${offer.get} for ${offer.give}: Mending on your best gear would make it last forever (trade want enchanted_book)`)
+    }
+  }
   if (home && homeDist !== null && homeDist <= 16 && SV.lootCount(bot) >= 48) add('soon', 'you are home with lots of loot in your pockets: put it away in your chests (deposit)')
 
   // Home & storage

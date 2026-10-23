@@ -66,6 +66,7 @@ function describe (bot, { executor, maxEntities = 10, blockRadius = 16 } = {}) {
   try { lines.push(`Surroundings: ${T.describeCover(bot)}`) } catch {}
 
   let vitals = `Health ${Math.round(bot.health)}/20, food ${bot.food}/20`
+  if (bot.experience) vitals += `, XP level ${bot.experience.level}`
   if (bot.oxygenLevel !== undefined && bot.oxygenLevel < 20) vitals += `, air ${bot.oxygenLevel}/20`
   lines.push(vitals)
   lines.push(`Time: ${timeLabel(bot)}${bot.isRaining ? ', raining' : ''}`)

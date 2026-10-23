@@ -3,8 +3,17 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (184 automated tests: 89 unit + 95 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (193 automated tests: 94 unit + 99 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.12.0: Enchanting
+
+- **New Enchanting skill** (4 tiers): Dabbler, Enchanter, Arcanist, Mending master.
+- **`enchant`**: uses the best enchanting table around (counting bookshelves the way the game does: two blocks out, air between, at most 15), puts in lapis, waits for the offers, and picks one by tier. Beginners take the best affordable offer; enchanters save up for the top offer and enchant gear in order of importance; masters choose by the enchantment shown.
+- **`anvil`** (tier 3): enchanted books onto the gear they suit (no conflicts or downgrades, Mending on the best gear first), repairs with the right material or a second copy, and renaming.
+- XP level now shows in the bot's STATE. Needs and the autopilot spend saved levels, point out missing lapis or bookshelves, suggest ways to earn XP, and remember where Mending is sold.
+- The setup page and randomizer know the new skill; new *Enchanter* play style.
+- Tests: 9 new (5 unit, 4 simulated-world).
 
 ## 0.11.0: Living like a real player
 

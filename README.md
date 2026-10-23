@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.11.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.12.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, goes caving, crafts and smelts · cooks, keeps its gear up to date, stores its loot and sleeps at night · trades with villagers · fights with real technique (bows, crits, strafing) · explores and maps the land · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · holds lasting feelings about every player, knows whose base is whose, notices theft, and (if it comes to that) steals a little · server operators stay in control.
+**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, goes caving, crafts and smelts · cooks, keeps its gear up to date, stores its loot and sleeps at night · trades with villagers · enchants its gear · fights with real technique (bows, crits, strafing) · explores and maps the land · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · holds lasting feelings about every player, knows whose base is whose, notices theft, and (if it comes to that) steals a little · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (184 automated tests: 89 unit + 95 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (193 automated tests: 94 unit + 99 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -54,6 +54,7 @@ Every bot starts as a beginner and improves by doing, like a real player. Each s
 | **Exploration** | 1 Wanderer: `explore` up to 96 blocks from home for ~3 minutes; notices biomes and villages · 2 Scout (50): 192 blocks, 6 min; + caves, lava, other people's bases; heads for unexplored land · 3 Pathfinder (200): 384 blocks, 10 min; + structures (temples, outposts, dungeons, ruined portals...) · 4 Cartographer (600): 768 blocks, 15 min; marks big finds with a torch post |
 | **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
 | **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals` and `build_pen` · 4 Agronomist (600): 11x11 farms and bone meal · 5 Master farmer (1200): a melon and pumpkin patch and sugar cane |
+| **Enchanting** | 1 Dabbler: `enchant` at a table, takes the best offer it can afford right away · 2 Enchanter (60): saves its levels for the table's top offer and enchants gear in order (pickaxe, sword, chestplate...) · 3 Arcanist (250): `anvil`: books onto gear, repairs, names · 4 Mending master (700): picks offers by the enchantment shown, Mending on the best gear first, remembers who sells it |
 | **The Nether** | unlocks at combat 3 + mining 3 · 1 Portal builder: `build_portal`, short peeks through · 2 Day tripper (80): quartz, Nether gold, glowstone within 32 blocks · 3 Fortress raider (300): nether wart and blaze rods within 96 · 4 Piglin trader (900): bartering gold with piglins · 5 Netherite smith (2000, needs combat 4 + mining 4): ancient debris, bastion raids, `make_netherite` |
 
 - **XP comes from results:** a finished base or upgrade, ores mined (diamonds count most), fights won (more for critical hits), crops harvested, new land mapped and things found, animals bred, Nether trips survived, track laid. Failed attempts give a little too.
@@ -234,6 +235,7 @@ The terminal window counts as an operator too.
 | `cook` | cooks raw food, in a smoker if there is one |
 | `upgrade_gear` | crafts better tools and armour from what it carries, replaces anything about to break, puts the best armour on |
 | `trade` | sells surplus to villagers for emeralds and buys what it wants; remembers every offer (see below) |
+| `enchant`, `anvil` | enchants gear at a table; puts books on gear, repairs and names things at an anvil (see below) |
 | `plan_railway`, `build_railway`, `ride_railway` | powered minecart lines between bases and places (see below) |
 | `protect_area`, `unprotect_area` | mark a place (a friend's house, a farm) the bot must never dig in |
 | `clean_inventory` | store everything in a nearby chest, or drop junk and extra dirt/gravel |
@@ -419,6 +421,17 @@ The Master miner (tier 5) strip-mines: long side tunnels three blocks apart, so 
 
 `collect_block` now only takes ores and stone you can actually see (on cliffs or in caves). For buried ores it tells the bot to use `mine`.
 
+### Enchanting
+
+The bot sees its XP level in STATE, like a player glancing at the green bar.
+
+- **`enchant`** (optionally `item`, `count`) uses the enchanting table with the most bookshelves around it (its own or one nobody owns). Bookshelves count when they're two blocks out from the table, at table height or one above, with air in between. 15 make level 30 offers possible. It needs lapis (1-3 per enchant) and levels.
+  - A *Dabbler* (tier 1) enchants whatever it's holding with the best offer it can afford right now.
+  - An *Enchanter* (tier 2) saves its levels until it can afford the table's best offer (level 30 with 15 shelves), and enchants in order of importance: pickaxe, sword, chestplate, leggings, helmet, boots, bow, then the rest, best material first. It says so when the table is missing bookshelves.
+  - A *Mending master* (tier 4) reads the offers: the table shows one enchantment per slot, and it picks Fortune III over Bane of Arthropods V for a pickaxe even if the latter costs more.
+- **`anvil`** (tier 3, `job`: books, repair or rename) puts each enchanted book on the gear it suits (Sharpness on the sword, Protection on the chestplate, Feather Falling on the boots...). It never adds a conflicting enchantment (Fortune with Silk Touch, two kinds of Protection) or a downgrade. It repairs worn gear with its material (iron ingots for iron, diamonds for diamond) or a second copy, and names things. Items that have been worked too often get "too expensive", like in vanilla.
+- Needs and the autopilot spend saved-up levels when it's home with lapis, nudge it to collect more XP (mining coal, redstone and lapis, smelting, fighting), and, for a Mending master, remind it which villager sells Mending.
+
 ### Trading
 
 `trade` (optionally `want`, `sell`, `at`) goes to the nearest village it knows (from exploring) or a saved place, walks up to each villager and looks through their offers.
@@ -575,6 +588,7 @@ src/body/ranch.js     melon/pumpkin patch, sugar cane, animal pens
 src/body/trading.js   villager trading and the trade book
 src/body/netherite.js ancient debris tunnels, bastion raids, make_netherite
 src/body/mannerisms.js  pauses, gestures, admiring builds (idle.js does the fidgets)
+src/body/enchanting.js  enchanting tables (bookshelf power, offers), anvils (books, repair, rename)
 src/manager/          the setup page: server.js (local web API), page.html, roster.js (bots and their config files),
                       processes.js (starting and talking to bots), randomize.js (characters), mind.js (memory view)
 src/body/railway.js   railway routes, track, power, stations
@@ -598,5 +612,5 @@ Issues and pull requests are welcome. Run `npm test` (fast unit tests) and `npm 
 - Package as a single download (Node's single-executable apps).
 - A "skill library": save successful multi-step plans and reuse them.
 - Crossbows and tridents, and falling-damage awareness (water buckets for big drops).
-- Schematic-based building, doors and beds in huts, enchanting, potion brewing, and auto-farms.
+- Schematic-based building, doors and beds in huts, potion brewing, and auto-farms.
 - Voice chat via speech-to-text.

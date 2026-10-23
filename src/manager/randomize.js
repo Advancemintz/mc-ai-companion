@@ -6,7 +6,7 @@
 //
 // Pass your own rng (a function returning 0..1) for repeatable results in tests.
 
-const SKILL_IDS = ['building', 'mining', 'combat', 'farming', 'exploration', 'railways', 'nether']
+const SKILL_IDS = ['building', 'mining', 'combat', 'farming', 'exploration', 'enchanting', 'railways', 'nether']
 
 // Play styles. talents: XP multipliers (1 = normal). weak: the skill they're bad at.
 const ARCHETYPES = {
@@ -16,8 +16,9 @@ const ARCHETYPES = {
   explorer: { label: 'Explorer', talents: { exploration: 1.7, combat: 1.1 }, weak: 'farming', focus: 'You are an explorer: you get restless at home and always want to know what is over the next hill', likes: ['new biomes', 'villages', 'finding ruins', 'sunrise on a long trip'] },
   farmer: { label: 'Farmer', talents: { farming: 1.7, building: 1.1 }, weak: 'combat', focus: 'You are a farmer at heart: fields, animals and a full pantry make you happy, and you like feeding people', likes: ['wheat fields', 'baby animals', 'a full barrel of bread', 'quiet mornings'] },
   engineer: { label: 'Engineer', talents: { railways: 1.7, mining: 1.2, building: 1.1 }, weak: 'exploration', focus: 'You are an engineer: you want to connect everything with rails and make things run smoothly', likes: ['powered rails', 'straight lines', 'redstone', 'plans that work'] },
-  adventurer: { label: 'Adventurer', talents: { nether: 1.6, combat: 1.2, exploration: 1.2 }, weak: 'farming', focus: 'You are a daredevil: the Nether and everything dangerous call to you, and you get bored when things are safe', likes: ['the Nether', 'blaze rods', 'close calls', 'stories to tell'] },
-  hoarder: { label: 'Hoarder', talents: { mining: 1.3, farming: 1.3 }, weak: 'exploration', focus: 'You are a collector: you want more of everything, you count your chests, and sharing does not come naturally', likes: ['full chests', 'rare items', 'counting things', 'a locked-up vault'] }
+  adventurer: { label: 'Adventurer', talents: { nether: 1.6, combat: 1.2, exploration: 1.2, enchanting: 1.2 }, weak: 'farming', focus: 'You are a daredevil: the Nether and everything dangerous call to you, and you get bored when things are safe', likes: ['the Nether', 'blaze rods', 'close calls', 'stories to tell'] },
+  enchanter: { label: 'Enchanter', talents: { enchanting: 1.7, building: 1.1 }, weak: 'combat', focus: 'You are fascinated by enchanting: you hoard lapis and books, love a full ring of bookshelves, and dream of gear glowing with Mending', likes: ['a glowing pickaxe', 'bookshelves', 'lapis', 'a good librarian'] },
+  hoarder: { label: 'Hoarder', talents: { mining: 1.3, farming: 1.3, enchanting: 1.3 }, weak: 'exploration', focus: 'You are a collector: you want more of everything, you count your chests, and sharing does not come naturally', likes: ['full chests', 'rare items', 'counting things', 'a locked-up vault'] }
 }
 
 const TRAITS = ['cheerful', 'grumpy', 'sarcastic', 'shy', 'boastful', 'anxious', 'calm', 'dramatic', 'competitive', 'generous', 'stingy',

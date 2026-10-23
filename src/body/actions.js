@@ -1288,6 +1288,9 @@ actions.build_portal = NETHER.portalAction
 actions.nether_trip = NETHER.tripAction
 actions.make_netherite = require('./netherite').makeNetheriteAction
 actions.trade = require('./trading').tradeAction
+const EN = require('./enchanting')
+actions.enchant = EN.enchantAction
+actions.anvil = EN.anvilAction
 
 actions.explore = require('./explore').exploreAction
 
@@ -1359,7 +1362,7 @@ actions.clean_inventory = {
 
 actions.note_lesson = {
   description: 'Write down a one-line lesson for one of your skills after something went wrong (or right), so you do better next time. Example: skill building, lesson "gather 80 blocks before starting a medium base".',
-  params: { skill: 'building | mining | combat | railways | farming | exploration | nether', lesson: 'one short sentence' },
+  params: { skill: 'building | mining | combat | railways | farming | exploration | enchanting | nether', lesson: 'one short sentence' },
   instant: true,
   run: async (ctx, { skill, lesson }) => {
     if (!ctx.skills) throw new Error('skills are not available')
