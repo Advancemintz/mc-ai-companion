@@ -3,8 +3,28 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (106 automated tests: 59 unit + 47 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (115 automated tests: 59 unit + 56 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.8.1: More homes, and end-game ones
+
+- **Tier 3 designs:** a stone **watchtower** (living room, bedroom, lookout, ladder all the way up, battlemented roof platform) and an L-shaped **farmhouse** (peaked roof, kitchen/pantry wing, covered porch, yard).
+- **Tier 4 end-game designs**
+  - The **manor**: two storeys around a central hall.
+    - Ground floor: a storage vault of double chests and an ender chest, and a full workshop and forge.
+    - Upstairs: an enchanting library with all 15 bookshelves, four beds and a brewing corner.
+    - Outside: a balcony over a covered porch.
+  - The **hillside fortress** is dug into a hill.
+    - A stone facade and a pillared great hall.
+    - A vault, a forge, a library, a bedroom and a brewing room.
+- **Smarter design choice:** the bot's newest designs are the likeliest pick. If the land doesn't suit a design, it tries the next one and says so.
+- **Furniture shopping list:** big designs report every empty furniture spot. Calling `build_base` on a finished base places any of that furniture the bot now carries (small XP, not a new-base reward).
+- Upgrades now depend on the design, and built-in rooms are reported as already there.
+- The site finder uses each design's real footprint, which also fixes the longhouse being checked as a square.
+- Designs can prefer materials: stone for towers and ground floors, wood upstairs, with the usual blocks as a fallback. Raw rock left where a design wants dressed stone (pillars, the facade, the fortress floor) gets replaced.
+- Ladders are now placed after windows, so a ladder against a window gets its support.
+- Upgrading or furnishing a base no longer re-awards the full base XP or resets `home`.
+- 9 new simulated-world tests.
 
 ## 0.8.0: Home designs, base upgrades, farming and the Nether
 

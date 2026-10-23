@@ -41,17 +41,17 @@ const SKILLS = {
         name: 'Homesteader',
         xp: 400,
         requires: { mining: 2 },
-        can: 'small, medium and large bases with every detail; upgrade_base can add a storage room or (surface bases) a hidden bunker under the house',
+        can: 'small, medium and large bases with every detail, and two new designs: a stone watchtower with a lookout and battlements, and an L-shaped farmhouse with a kitchen wing and porch. upgrade_base can add a storage room or (surface bases) a hidden bunker under the house',
         next: 'finish medium or large bases and upgrade them',
-        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 1, missChance: 0, hutMaxSize: 7, detailSkip: 0, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall'], upgrades: ['storage_room', 'bunker'] }
+        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 1, missChance: 0, hutMaxSize: 7, detailSkip: 0, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall', 'watchtower', 'farmhouse'], upgrades: ['storage_room', 'bunker'] }
       },
       {
         name: 'Architect',
         xp: 1200,
         requires: { mining: 3 },
-        can: 'everything, plus two-storey houses (storeys: 2). upgrade_base can also add a second storey to an existing house and an enchanting room with bookshelves',
-        next: 'keep building and upgrading; future tiers will add more styles and decorations',
-        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 2, missChance: 0, hutMaxSize: 7, detailSkip: 0, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall'], upgrades: ['storage_room', 'bunker', 'second_storey', 'enchanting_room'] }
+        can: 'everything, plus two-storey houses (storeys: 2) and the end-game designs: a manor (storage vault, forge, enchanting library, bedrooms, brewing corner, balcony) and a hillside fortress dug into a hill (pillared great hall, vault, forge, library, bedroom, brewing room). upgrade_base can also add a second storey and an enchanting room to older houses',
+        next: 'keep building and upgrading; furnish your manor or fortress fully',
+        params: { bases: ['surface', 'underground'], baseSizes: ['small', 'medium', 'large'], storeys: 2, missChance: 0, hutMaxSize: 7, detailSkip: 0, hutVariants: ['box', 'peaked'], variants: ['cottage', 'longhouse', 'cellar', 'hall', 'watchtower', 'farmhouse', 'manor', 'hillside'], upgrades: ['storage_room', 'bunker', 'second_storey', 'enchanting_room'] }
       }
     ]
   },

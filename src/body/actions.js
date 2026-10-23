@@ -758,8 +758,8 @@ actions.build = {
 }
 
 actions.build_base = {
-  description: 'Build a proper base (a big project, may take several minutes; calling it again continues an unfinished one). style "surface": finds the flattest nearby area, clears trees and levels it, then builds a log-framed house with floor, windows, door, roof, torches and any crafting_table/furnace/chest/bed you carry. Sizes: small (7x7, ~150 blocks), medium (9x9, ~260), large (11x11, ~370), mostly planks/cobblestone plus ~20-30 logs. style "underground": digs a covered 2-wide staircase with doors down to a carved room (size small/medium/large), seals caves/water/lava, adds torches and furniture; needs a pickaxe and produces lots of cobblestone. Use plan_only first to check materials.',
-  params: { style: 'surface | underground', variant: 'optional design: cottage or longhouse (surface), cellar or hall (underground); default: random among the ones you know', size: 'small | medium | large (default: the biggest you can manage)', storeys: 'surface only: 1 or 2 (two storeys needs building tier 4)', depth: 'underground: how deep, default 10', name: 'project name (default "base")', plan_only: 'true = only choose the spot and list needed materials', restart: 'true = abandon the old one and start a new one here' },
+  description: 'Build a proper base (a big project, may take several minutes; calling it again continues an unfinished one, and on a finished base it places any furniture you now carry for its empty spots). Designs (picked at random from those you know, or ask with variant): cottage, longhouse, watchtower, farmhouse, manor (surface); cellar, hall, hillside (underground; hillside digs into a hill). A manor is the end-game home (~1400 blocks for medium, plus furniture: chests, workshop blocks, enchanting table + 15 bookshelves, brewing stand, beds). style "surface": finds the flattest nearby area, clears trees and levels it, then builds a log-framed house with floor, windows, door, roof, torches and any crafting_table/furnace/chest/bed you carry. Sizes: small (7x7, ~150 blocks), medium (9x9, ~260), large (11x11, ~370), mostly planks/cobblestone plus ~20-30 logs. style "underground": digs a covered 2-wide staircase with doors down to a carved room (size small/medium/large), seals caves/water/lava, adds torches and furniture; needs a pickaxe and produces lots of cobblestone. Use plan_only first to check materials.',
+  params: { style: 'surface | underground', variant: 'optional design: cottage, longhouse, watchtower, farmhouse, manor (surface); cellar, hall, hillside (underground); default: random among the ones you know, newest most likely', size: 'small | medium | large (default: the biggest you can manage)', storeys: 'surface only: 1 or 2 (two storeys needs building tier 4)', depth: 'underground: how deep, default 10', name: 'project name (default "base")', plan_only: 'true = only choose the spot and list needed materials', restart: 'true = abandon the old one and start a new one here' },
   timeoutSeconds: 2400,
   run: async (ctx, args) => {
     const { bot } = ctx
@@ -767,14 +767,23 @@ actions.build_base = {
     const name = String(args.name || 'base').toLowerCase().replace(/[^a-z0-9_]+/g, '_')
     const truthy = (v) => v === true || /^(true|yes|1)$/i.test(String(v))
     let proj = mem?.getProject(name) || ctx.bot._localProjects?.[name] || null
+    let designNote = ''
     if (proj && truthy(args.restart)) proj = null
     if (proj && proj.status === 'done' && !truthy(args.plan_only)) {
-      const allowed = (ctx.skills?.params('building')?.upgrades || Object.keys(H.UPGRADES))
-        .filter(u => H.UPGRADES[u].styles.includes(proj.style) && !(proj.upgrades || []).includes(u) && !(u === 'second_storey' && (proj.storeys || 1) > 1))
-      return `"${name}" is already finished at ${proj.origin.x} ${proj.origin.y} ${proj.origin.z}. ` +
-        (allowed.length ? `Improve it instead with upgrade_base: ${allowed.join(', ')}.` : 'There are no upgrades you know for it yet.') +
-        ' (Or use a different name / restart:true for a whole new base.)'
+      const allowed = H.availableUpgrades(proj, ctx.skills?.params('building')?.upgrades || Object.keys(H.UPGRADES))
+      const done = B.toWorld(H.baseLayout(proj), new Vec3(proj.origin.x, proj.origin.y, proj.origin.z), new Vec3(proj.f.x, 0, proj.f.z), B.rightOf(new Vec3(proj.f.x, 0, proj.f.z)))
+      const empty = B.missingFurniture(bot, done.cells)
+      // Carrying something for an empty furniture spot? Then this call furnishes the base.
+      const carried = bot.inventory.items().some(i => done.cells.some(c => c.role === 'furniture' && empty[typeof c.item === 'string' ? c.item : String(c.item.source).replace(/[\^$\\]/g, '').replace(/^_/, '')] && B.matches(i.name, c.item)))
+      if (!carried) {
+        const emptyText = Object.keys(empty).length ? ` Furniture spots still empty: ${Object.entries(empty).map(([k, v]) => `${v} ${k}`).join(', ')}; bring any of them and call build_base again to put them in place.` : ''
+        return `"${name}" is already finished at ${proj.origin.x} ${proj.origin.y} ${proj.origin.z}. ` +
+          (allowed.length ? `Improve it instead with upgrade_base: ${allowed.join(', ')}.` : 'There are no upgrades you know for it yet.') + emptyText +
+          ' (Or use a different name / restart:true for a whole new base.)'
+      }
     }
+    const wasDone = !!proj?.finishedAt || proj?.status === 'done' // finished before: this is furnishing or an upgrade
+    const furnishing = proj?.status === 'done'
 
     if (!proj) {
       const style = /under/i.test(String(args.style || '')) ? 'underground' : 'surface'
@@ -786,35 +795,56 @@ actions.build_base = {
       if (!skill.baseSizes.includes(size)) {
         throw new Error(`a ${size} base is beyond me for now; I can manage: ${skill.baseSizes.join(', ')}. (Building more bases will improve that.)`)
       }
-      const storeys = style === 'surface' && Math.round(num(args.storeys, 1)) >= 2 ? 2 : 1
+      const multi = ['', 'cottage', 'longhouse', 'farmhouse'].includes(String(args.variant || '').toLowerCase())
+      const storeys = style === 'surface' && multi && Math.round(num(args.storeys, 1)) >= 2 ? 2 : 1
       if (storeys > skill.storeys) ctx.skills.require('building', 4, 'two-storey houses')
-      // Which design: the one asked for if the bot knows it, otherwise a random one it knows.
+      // Which design: the one asked for if the bot knows it, otherwise a random one it knows
+      // (its newest designs are the likeliest). If the land doesn't suit a design, try the next.
       const known = (ctx.skills ? skill.variants : null) || null
       const askedVariant = String(args.variant || '').toLowerCase()
-      let variant
+      let order
       if (H.VARIANTS[askedVariant] && H.VARIANTS[askedVariant].style === style) {
-        if (known && !known.includes(askedVariant)) throw new Error(`I don't know how to build a ${askedVariant} yet; I know: ${known.filter(v => H.VARIANTS[v].style === style).join(', ')}`)
-        variant = askedVariant
+        if (known && !known.includes(askedVariant)) {
+          const need = H.VARIANTS[askedVariant].tier
+          if (ctx.skills && ctx.skills.tier('building') < need) ctx.skills.require('building', need, `${askedVariant} designs`)
+          throw new Error(`I don't know how to build a ${askedVariant} yet; I know: ${known.filter(v => H.VARIANTS[v].style === style).join(', ')}`)
+        }
+        order = [askedVariant]
       } else {
-        variant = known ? H.pickVariant(style, known) : (style === 'surface' ? 'cottage' : 'cellar')
+        order = known ? H.variantOrder(style, known) : [style === 'surface' ? 'cottage' : 'cellar']
       }
       const depth = clamp(Math.round(num(args.depth, 10)), 6, 24)
-      let site
       if (style === 'surface') {
         const c = T.cover(bot)
         if (c.kind === 'underground' || c.kind === 'indoors') {
           throw new Error("I'm underground/under a roof. Use go_to_surface first, or build an underground base instead")
         }
-        site = B.chooseSurfaceSite(bot, size)
-        if (!site) throw new Error('no spot within 20 blocks is flat and dry enough (too much water, steep hills or other people\'s builds). Move somewhere more open and try again, or try a smaller size')
-      } else {
-        if (!bot.inventory.items().some(i => i.name.endsWith('_pickaxe'))) throw new Error('digging a base needs a pickaxe (stone or better)')
-        site = B.chooseUndergroundSite(bot, size, depth)
-        if (!site) throw new Error("can't dig a base from here (unloaded area, bedrock, or someone's blocks in the way). Move a bit and try again")
-        if (site.lava > 8) throw new Error('there is a lot of lava down there in every direction. Move somewhere else first')
+      } else if (!bot.inventory.items().some(i => i.name.endsWith('_pickaxe'))) {
+        throw new Error('digging a base needs a pickaxe (stone or better)')
       }
+      let site = null
+      let variant = null
+      let lavaHit = false
+      const skipped = []
+      for (const v of order) {
+        const shape = H.baseLayout({ style, size, depth, storeys, variant: v, upgrades: [] })
+        let s2
+        if (style === 'surface') s2 = B.chooseSurfaceSite(bot, size, { box: H.footprintBox(shape), radius: v === 'manor' ? 24 : 20 })
+        else if (v === 'hillside') s2 = H.chooseHillsideSite(bot, shape)
+        else s2 = B.chooseUndergroundSite(bot, size, depth, shape)
+        if (s2 && s2.lava > 8) { lavaHit = true; s2 = null }
+        if (s2) { site = s2; variant = v; break }
+        skipped.push(v)
+      }
+      if (!site) {
+        if (order.length === 1 && order[0] === 'hillside') throw new Error('no hill or cliff nearby to dig a hillside fortress into (it needs a slope at least 7 blocks high, mostly solid inside, within 24 blocks). Move next to a hill, or pick another design')
+        if (style === 'surface') throw new Error(`no spot within 20 blocks is flat and dry enough for ${order.length > 1 ? 'any design I know' : `a ${order[0]}`} (too much water, steep hills or other people's builds). Move somewhere more open and try again, or try a smaller size`)
+        if (lavaHit) throw new Error('there is a lot of lava down there in every direction. Move somewhere else first')
+        throw new Error("can't dig a base from here (unloaded area, bedrock, or someone's blocks in the way). Move a bit and try again")
+      }
+      if (skipped.length) designNote = ` (I wanted a ${skipped[0]}, but the land here didn't suit it, so I went with a ${variant}.)`
       proj = {
-        style, size, depth, storeys, variant, upgrades: [],
+        style, size, depth, storeys: variant === 'manor' ? 2 : storeys, variant, upgrades: [],
         origin: { x: site.origin.x, y: site.origin.y, z: site.origin.z },
         f: { x: site.f.x, z: site.f.z },
         status: 'in progress',
@@ -832,9 +862,9 @@ actions.build_base = {
     const detailSkip = ctx.skills?.params('building')?.detailSkip || 0
     const plan = B.toWorld(layout, origin, f, r)
     if (proj.style === 'underground') plan.digOrder = (a, b) => a.rel[2] - b.rel[2]
-    const storeysNow = (proj.storeys || 1) > 1 || (proj.upgrades || []).includes('second_storey')
+    const levels = layout.geo?.storeys || ((proj.storeys || 1) > 1 || (proj.upgrades || []).includes('second_storey') ? 2 : 1)
     const extras = [proj.variant, ...(proj.upgrades || []).map(u => u.replace(/_/g, ' '))].filter(Boolean).join(' + ')
-    const label = `${storeysNow ? 'two-storey ' : ''}${proj.size} ${proj.style} base "${name}"${extras ? ` (${extras})` : ''} at ${fmtPos(origin)}`
+    const label = `${levels === 2 ? 'two-storey ' : levels === 3 ? 'three-storey ' : ''}${proj.size} ${proj.style} base "${name}"${extras ? ` (${extras})` : ''} at ${fmtPos(origin)}`
 
     const describeNeeds = (missing) => Object.entries(missing).map(([g, n]) => `${n} ${g}`).join(', ')
     if (truthy(args.plan_only)) {
@@ -860,15 +890,18 @@ actions.build_base = {
     if (essentialCount > 4) {
       ctx.skills?.award('building', stats.placed * 0.1, 'worked on a base')
       if (mem) mem.saveProject(name, proj)
-      return `worked on the ${label}: ${work}. Now ${after.progress}% done. Still need: ${proj.needs}. Gather those, then call build_base (name "${name}") again to continue.${warn}`
+      return `worked on the ${label}: ${work}. Now ${after.progress}% done. Still need: ${proj.needs}. Gather those, then call build_base (name "${name}") again to continue.${warn}${designNote}`
     }
 
     proj.status = 'done'
     proj.needs = ''
-    const baseXp = { small: 40, medium: 70, large: 100 }[proj.size] * ((proj.storeys || 1) > 1 ? 1.5 : 1) + stats.placed * 0.05
-    ctx.skills?.award('building', baseXp, `finished a ${proj.size} ${proj.style} base`)
-    let result = `finished the ${label}: ${work}.`
-    if (mem) {
+    const designXp = { 3: 1.5, 4: 2.5 }[H.VARIANTS[proj.variant]?.tier] || 1
+    const baseXp = wasDone ? stats.placed * 0.5 : { small: 40, medium: 70, large: 100 }[proj.size] * (levels > 1 ? 1.5 : 1) * designXp + stats.placed * 0.05
+    ctx.skills?.award('building', baseXp, furnishing ? 'furnished a base' : wasDone ? 'extended a base' : `finished a ${proj.size} ${proj.style} base`)
+    let result = `${furnishing ? 'furnished' : 'finished'} the ${label}: ${work}.`
+    proj.finishedAt = proj.finishedAt || new Date().toISOString()
+    if (mem && wasDone) mem.saveProject(name, proj)
+    if (mem && !wasDone) {
       mem.saveProject(name, proj)
       const oldHome = mem.getPlace('home')
       if (oldHome) mem.setPlace('old_home', new Vec3(oldHome.x, oldHome.y, oldHome.z), oldHome.dimension, oldHome.note)
@@ -878,12 +911,15 @@ actions.build_base = {
       result += ` Saved as home (inside: ${fmtPos(plan.inside)}, entrance: ${fmtPos(plan.entrance)}).`
     }
     if (optional.length) result += ` Optional extras still missing: ${describeNeeds(Object.fromEntries(optional))}; add them later by running build_base again.`
+    const emptySpots = B.missingFurniture(bot, plan.cells)
+    if (Object.keys(emptySpots).length) result += ` Furniture spots still empty: ${Object.entries(emptySpots).map(([k, v]) => `${v} ${k}`).join(', ')}; bring them and call build_base again to put them in place.`
+    result += designNote
     return result + warn
   }
 }
 
 actions.upgrade_base = {
-  description: 'Improve your existing base instead of building a new one. upgrade: storage_room (side room of chests), bunker (safe room under a surface house, ladder down), second_storey (upper floor + ladder + upstairs bedroom, surface), enchanting_room (enchanting table with 15 bookshelves). Which ones you know depends on your building tier. Bring the materials (blocks, ladders, chests, bookshelves...). Resumable like build_base.',
+  description: 'Improve your existing base instead of building a new one. upgrade: storage_room (side room of chests), bunker (safe room under a surface house, ladder down), second_storey (upper floor + ladder + upstairs bedroom, surface), enchanting_room (enchanting table with 15 bookshelves). Which ones you know depends on your building tier, and which fit depends on the design (a manor already has its vault and library). Bring the materials (blocks, ladders, chests, bookshelves...). Resumable like build_base.',
   params: { upgrade: 'storage_room | bunker | second_storey | enchanting_room', name: 'base project name (default "base")' },
   timeoutSeconds: 2400,
   run: async (ctx, { upgrade, name }) => {
@@ -896,6 +932,9 @@ actions.upgrade_base = {
     const def = H.UPGRADES[up]
     if (!def) throw new Error(`I don't know an upgrade called "${upgrade}". Options: ${Object.keys(H.UPGRADES).join(', ')}`)
     if (!def.styles.includes(proj.style)) throw new Error(`a ${up.replace(/_/g, ' ')} only works for a ${def.styles.join(' or ')} base`)
+    const design = H.VARIANTS[proj.variant || (proj.style === 'surface' ? 'cottage' : 'cellar')] || {}
+    if ((design.builtIn || []).includes(up)) return `the ${proj.variant} already has that built in${up === 'second_storey' ? ' (it has two storeys)' : ''}`
+    if (!(design.upgrades || []).includes(up)) throw new Error(`a ${up.replace(/_/g, ' ')} doesn't fit a ${proj.variant || 'base'} like this one. It can take: ${(design.upgrades || []).map(u => u.replace(/_/g, ' ')).join(', ') || 'nothing more'}`)
     const known = ctx.skills ? (ctx.skills.params('building')?.upgrades || []) : Object.keys(H.UPGRADES)
     if (!known.includes(up)) {
       const tiers = require('../skills/registry').SKILLS.building.tiers

@@ -79,7 +79,7 @@ function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
     const known = skills ? (skills.params('building')?.upgrades || []) : []
     for (const [name, p] of Object.entries(memory.data.projects || {})) {
       if (p.status !== 'done' || !H.UPGRADES || !(p.style === 'surface' || p.style === 'underground')) continue
-      const open = known.filter(u => H.UPGRADES[u]?.styles.includes(p.style) && !(p.upgrades || []).includes(u) && !(u === 'second_storey' && (p.storeys || 1) > 1))
+      const open = H.availableUpgrades(p, known)
       if (open.length) { add('someday', `your base "${name}" could be improved with upgrade_base (${open.join(', ')}) instead of building a new one`); break }
     }
   }

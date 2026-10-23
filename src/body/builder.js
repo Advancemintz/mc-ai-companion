@@ -67,8 +67,10 @@ function isAirLike (b) {
   return !b || b.name === 'air' || b.name === 'cave_air' || b.name === 'void_air'
 }
 
-function acceptable (b, role) {
+// prefer: a design's preferred materials; raw natural rock in such a spot gets dressed (replaced).
+function acceptable (b, role, prefer = null) {
   if (!b) return false
+  if (prefer && STRUCT.has(role) && NATURAL.test(b.name) && !prefer.some(e => matches(b.name, e))) return false
   if (EMPTY.has(role)) return isAirLike(b) || /_door$|torch$|rail$|_button$|^lever$/.test(b.name)
   if (STRUCT.has(role)) return T.isFirm(b) && !(NATURAL.test(b.name) && !(PALETTE[role] || []).some(e => matches(b.name, e)))
   if (FILLERS.has(role)) return T.isFirm(b)
@@ -86,11 +88,11 @@ const OWN_REMOVABLE = /(_planks|_log|_wood|^cobblestone|^cobbled_deepslate|^ston
 const ownRemovable = (b) => !!b && OWN_REMOVABLE.test(b.name) && !/chest|barrel|furnace|table|bed|anvil|bookshelf|shulker/.test(b.name)
 
 // Natural blocks in the way of a structural cell (dirt where the floor goes) get dug out first.
-function needsDigging (b, role, allowOwn = false) {
+function needsDigging (b, role, allowOwn = false, prefer = null) {
   if (isAirLike(b) || T.isLiquid(b)) return false
   if ((EMPTY.has(role) || OPTIONAL.has(role)) && acceptable(b, role)) return false // e.g. a torch we placed
   if (EMPTY.has(role) || OPTIONAL.has(role)) return NATURAL.test(b.name) || (b.boundingBox === 'empty' && b.diggable) || (allowOwn && ownRemovable(b))
-  if (STRUCT.has(role)) return !acceptable(b, role) && (NATURAL.test(b.name) || b.boundingBox === 'empty')
+  if (STRUCT.has(role)) return !acceptable(b, role, prefer) && (NATURAL.test(b.name) || b.boundingBox === 'empty')
   return false
 }
 
@@ -260,9 +262,11 @@ const CARDINALS = [new Vec3(0, 0, -1), new Vec3(1, 0, 0), new Vec3(0, 0, 1), new
 const rightOf = (f) => new Vec3(-f.z, 0, f.x)
 
 // Surface: the flattest, driest open area nearby (cost = digging + filling + trees).
-function chooseSurfaceSite (bot, size, { radius = 20, facing } = {}) {
+// box: the area (and height) the design needs, relative to the origin; default is a square house.
+function chooseSurfaceSite (bot, size, { radius = 20, facing, box } = {}) {
   const { E, H } = SIZES[size] || SIZES.medium
   const h = (E - 1) / 2
+  const bx = box || { riMin: -h - 1, riMax: h + 1, fiMin: -1, fiMax: E, height: H + 2 }
   const me = bot.entity.position.floored()
   const cols = new Map()
   const col = (x, z) => {
@@ -275,7 +279,7 @@ function chooseSurfaceSite (bot, size, { radius = 20, facing } = {}) {
     const k = `${x},${z},${gy}`
     if (clearCache.has(k)) return clearCache.get(k)
     let cost = 0
-    for (let y = gy + 1; y <= gy + H + 2; y++) {
+    for (let y = gy + 1; y <= gy + bx.height; y++) {
       const b = bot.blockAt(new Vec3(x, y, z))
       if (!b) { cost = Infinity; break }
       if (isAirLike(b)) continue
@@ -297,8 +301,8 @@ function chooseSurfaceSite (bot, size, { radius = 20, facing } = {}) {
         const heights = []
         let ok = true
         const pts = []
-        for (let fi = -1; fi <= E && ok; fi++) {
-          for (let ri = -h - 1; ri <= h + 1; ri++) {
+        for (let fi = bx.fiMin; fi <= bx.fiMax && ok; fi++) {
+          for (let ri = bx.riMin; ri <= bx.riMax; ri++) {
             const x = ox + r.x * ri + fv.x * fi
             const z = oz + r.z * ri + fv.z * fi
             const c = col(x, z)
@@ -330,7 +334,7 @@ function chooseSurfaceSite (bot, size, { radius = 20, facing } = {}) {
 }
 
 // Underground: dig in from in front of the bot, trying all four directions, avoiding liquids.
-function chooseUndergroundSite (bot, size, depth) {
+function chooseUndergroundSite (bot, size, depth, layout = null) {
   const me = bot.entity.position.floored()
   let best = null
   for (const f of CARDINALS) {
@@ -341,7 +345,7 @@ function chooseUndergroundSite (bot, size, depth) {
     // Stand at ground level: when underground already, dig on from the current floor.
     const gy = Math.min(c.y, me.y - 1)
     const origin = new Vec3(start.x, gy, start.z)
-    const plan = toWorld(undergroundBaseCells(size, depth), origin, f, r)
+    const plan = toWorld(layout || undergroundBaseCells(size, depth), origin, f, r)
     let liquids = 0; let lava = 0; let unloaded = 0; let bedrock = 0; let foreign = 0
     for (const cell of plan.cells) {
       const b = bot.blockAt(cell.pos)
@@ -392,12 +396,23 @@ function survey (bot, cells) {
     }
     total++
     const b = bot.blockAt(c.pos)
-    if (acceptable(b, c.role)) { done++; continue }
+    if (acceptable(b, c.role, c.prefer)) { done++; continue }
     if (c.role === 'furniture') continue
     const g = groupOf(c.role)
     if (g) missing[g] = (missing[g] || 0) + 1
   }
   return { missing, progress: total ? Math.round((done / total) * 100) : 100 }
+}
+
+// Furniture spots that are still empty, by item, so the bot knows what to bring.
+function missingFurniture (bot, cells) {
+  const out = {}
+  for (const c of cells) {
+    if (c.role !== 'furniture' || acceptable(bot.blockAt(c.pos), 'furniture')) continue
+    const name = typeof c.item === 'string' ? c.item : String(c.item.source).replace(/[\^$\\]/g, '').replace(/^_/, '')
+    out[name] = (out[name] || 0) + 1
+  }
+  return out
 }
 
 async function reach (ctx, pos) {
@@ -477,7 +492,12 @@ async function placeCell (ctx, cell, stats) {
   } else if (cell.role === 'ladder') {
     mat = bot.inventory.items().find(i => i.name === 'ladder')?.name
   } else {
-    mat = pickMaterial(bot, cell.role)
+    // A design can prefer some materials (stone for a tower); the normal palette is the fallback.
+    if (cell.prefer && (STRUCT.has(cell.role) || FILLERS.has(cell.role))) {
+      const counts = inventoryCounts(bot)
+      for (const entry of cell.prefer) { mat = Object.keys(counts).find(n => counts[n] > 0 && matches(n, entry)); if (mat) break }
+    }
+    mat = mat || pickMaterial(bot, cell.role)
     if (!mat && cell.role === 'frame') mat = pickMaterial(bot, 'wall')
     if (!mat && FILLERS.has(cell.role)) mat = pickMaterial(bot, 'wall')
   }
@@ -519,7 +539,7 @@ async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0, a
         const p = new Vec3(x, y, z)
         if (!LIQUID_DIRS.some(d => T.isLiquid(bot.blockAt(p.plus(d))))) stats.flooded.delete(k)
       }
-      const toDig = cells.filter(c => !stats.flooded.has(c.pos.toString()) && needsDigging(bot.blockAt(c.pos), c.role, allowOwn))
+      const toDig = cells.filter(c => !stats.flooded.has(c.pos.toString()) && needsDigging(bot.blockAt(c.pos), c.role, allowOwn, c.prefer))
       if (!toDig.length) break
       toDig.sort((a, b) => (plan.digOrder ? plan.digOrder(a, b) : 0) ||
         (b.pos.y - a.pos.y) || (a.pos.distanceTo(bot.entity.position) - b.pos.distanceTo(bot.entity.position)))
@@ -548,7 +568,7 @@ async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0, a
     }
 
     // 3. Structure, bottom up, in a few passes (some blocks need neighbours first).
-    let pending = cells.filter(c => STRUCT.has(c.role) && !acceptable(bot.blockAt(c.pos), c.role))
+    let pending = cells.filter(c => STRUCT.has(c.role) && !acceptable(bot.blockAt(c.pos), c.role, c.prefer))
     for (let pass = 0; pass < 6 && pending.length; pass++) {
       pending.sort((a, b) => a.pos.y - b.pos.y || (a.role === 'frame' ? -1 : 0) - (b.role === 'frame' ? -1 : 0) ||
         a.pos.distanceTo(bot.entity.position) - b.pos.distanceTo(bot.entity.position))
@@ -567,7 +587,7 @@ async function runBlueprint (ctx, plan, { onStatus = () => {}, detailSkip = 0, a
     }
 
     // 4. Details: windows, lights, doors, furniture.
-    const order = { ladder: 0, window: 1, light: 2, furniture: 3, door: 4 }
+    const order = { window: 0, ladder: 1, light: 2, furniture: 3, door: 4 }
     const details = cells.filter(c => OPTIONAL.has(c.role) && !acceptable(bot.blockAt(c.pos), c.role))
       .sort((a, b) => order[a.role] - order[b.role] || a.pos.y - b.pos.y)
     for (const c of details) {
@@ -593,6 +613,8 @@ module.exports = {
   chooseUndergroundSite,
   runBlueprint,
   survey,
+  missingFurniture,
+  CARDINALS,
   pickMaterial,
   inventoryCounts,
   acceptable,

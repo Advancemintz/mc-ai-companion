@@ -17,6 +17,7 @@
 // it, and an upgrade is simply "the base blueprint plus some more cells".
 
 const B = require('./builder')
+const DS = require('./designs')
 
 const key = (r, u, f) => `${r},${u},${f}`
 
@@ -155,23 +156,35 @@ function hall (size, depth) {
 
 // ------------------------------------------------------------------ variants
 
+// tier: the building tier that unlocks it. upgrades: which upgrade_base options fit the design.
+// builtIn: rooms the design already has (so those upgrades are reported as already there).
+const ALL_SURFACE = ['storage_room', 'bunker', 'second_storey', 'enchanting_room']
 const VARIANTS = {
-  cottage: { style: 'surface', about: 'square cottage with a log frame and flat roof' },
-  longhouse: { style: 'surface', about: 'long, narrow house with a peaked roof' },
-  cellar: { style: 'underground', about: 'square room under the ground' },
-  hall: { style: 'underground', about: 'long underground hall with stone pillars' }
+  cottage: { style: 'surface', tier: 2, about: 'square cottage with a log frame and flat roof', upgrades: ALL_SURFACE },
+  longhouse: { style: 'surface', tier: 2, about: 'long, narrow house with a peaked roof', upgrades: ALL_SURFACE },
+  cellar: { style: 'underground', tier: 2, about: 'square room under the ground', upgrades: ['storage_room', 'enchanting_room'] },
+  hall: { style: 'underground', tier: 2, about: 'long underground hall with stone pillars', upgrades: ['storage_room', 'enchanting_room'] },
+  watchtower: { style: 'surface', tier: 3, about: 'tall stone tower: living room, bedroom, lookout and a battlemented roof', upgrades: ['storage_room', 'bunker', 'enchanting_room'] },
+  farmhouse: { style: 'surface', tier: 3, about: 'L-shaped farmhouse with a kitchen wing, front porch and yard', upgrades: ['storage_room', 'bunker', 'second_storey'] },
+  manor: { style: 'surface', tier: 4, about: 'two-storey manor: storage vault, forge, enchanting library, bedrooms, brewing, balcony', upgrades: ['bunker'], builtIn: ['storage_room', 'enchanting_room', 'second_storey'] },
+  hillside: { style: 'underground', tier: 4, about: 'fortress dug into a hill: facade, pillared great hall, vault, forge, library, bedroom, brewing room', upgrades: [], builtIn: ['storage_room', 'enchanting_room'], needs: 'a hill or cliff to dig into' }
 }
 
 function baseGeometry (proj) {
   const { E, H } = B.SIZES[proj.size] || B.SIZES.medium
   if (proj.style === 'surface') {
-    if ((proj.variant || 'cottage') === 'longhouse') return longhouse(proj.size, proj.storeys || 1)
+    const v = proj.variant || 'cottage'
+    if (v === 'longhouse') return longhouse(proj.size, proj.storeys || 1)
+    if (v === 'watchtower') return DS.watchtower(proj.size)
+    if (v === 'farmhouse') return DS.farmhouse(proj.size, proj.storeys || 1)
+    if (v === 'manor') return DS.manor(proj.size)
     const two = (proj.storeys || 1) >= 2
     const out = B.surfaceBaseCells(proj.size, proj.storeys || 1)
     const h = (E - 1) / 2
     return { ...out, geo: { W: E, L: E, H, h, mid: Math.floor(E / 2), top: two ? 2 * H + 1 : H, storeys: two ? 2 : 1 } }
   }
   if ((proj.variant || 'cellar') === 'hall') return hall(proj.size, proj.depth)
+  if (proj.variant === 'hillside') return DS.hillside(proj.size)
   const out = B.undergroundBaseCells(proj.size, proj.depth)
   const D = Math.max(5, Math.min(24, proj.depth))
   const Hr = proj.size === 'small' ? 3 : 4
@@ -303,10 +316,47 @@ function baseLayout (proj) {
   return { cells: [...map.values()], inside: base.inside, entrance: base.entrance, geo: base.geo }
 }
 
-function pickVariant (style, allowed, rand = Math.random) {
-  const options = Object.entries(VARIANTS).filter(([name, v]) => v.style === style && allowed.includes(name)).map(([n]) => n)
-  if (!options.length) return style === 'surface' ? 'cottage' : 'cellar'
-  return options[Math.floor(rand() * options.length)]
+// Designs from the bot's newest tier are the most likely pick (a good builder mostly builds its
+// best), older ones still turn up now and then. Returns every allowed design in a random order,
+// so the caller can fall back to the next one when the first doesn't fit the land.
+function variantOrder (style, allowed, rand = Math.random) {
+  const pool = Object.entries(VARIANTS).filter(([name, v]) => v.style === style && allowed.includes(name))
+  if (!pool.length) return [style === 'surface' ? 'cottage' : 'cellar']
+  const newest = Math.max(...pool.map(([, v]) => v.tier))
+  const items = pool.map(([name, v]) => ({ name, w: Math.max(1, 3 - (newest - v.tier)) }))
+  const out = []
+  while (items.length) {
+    let x = rand() * items.reduce((n, i) => n + i.w, 0)
+    let k = 0
+    while (k < items.length - 1 && x >= items[k].w) { x -= items[k].w; k++ }
+    out.push(items.splice(k, 1)[0].name)
+  }
+  return out
 }
 
-module.exports = { VARIANTS, UPGRADES, baseLayout, baseGeometry, pickVariant, longhouse, hall }
+function pickVariant (style, allowed, rand = Math.random) {
+  return variantOrder(style, allowed, rand)[0]
+}
+
+// Upgrades the bot knows that fit this base and aren't built yet.
+function availableUpgrades (proj, known) {
+  const v = VARIANTS[proj.variant || (proj.style === 'surface' ? 'cottage' : 'cellar')] || {}
+  return (known || []).filter(u => UPGRADES[u] && UPGRADES[u].styles.includes(proj.style) &&
+    (v.upgrades || []).includes(u) && !(proj.upgrades || []).includes(u) &&
+    !(u === 'second_storey' && (proj.storeys || 1) > 1))
+}
+
+// The rectangle (and height) a layout needs, for the site finder.
+function footprintBox (layout) {
+  const box = { riMin: Infinity, riMax: -Infinity, fiMin: Infinity, fiMax: -Infinity, height: 0 }
+  for (const c of layout.cells) {
+    const [ri, up, fi] = c.rel
+    if (up < 0) continue
+    box.riMin = Math.min(box.riMin, ri); box.riMax = Math.max(box.riMax, ri)
+    box.fiMin = Math.min(box.fiMin, fi); box.fiMax = Math.max(box.fiMax, fi)
+    box.height = Math.max(box.height, up)
+  }
+  return box
+}
+
+module.exports = { VARIANTS, UPGRADES, baseLayout, baseGeometry, pickVariant, variantOrder, availableUpgrades, footprintBox, chooseHillsideSite: DS.chooseHillsideSite, longhouse, hall }

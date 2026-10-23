@@ -1,6 +1,6 @@
 {
   "name": "mc-ai-companion",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "A Minecraft companion bot: an LLM brain for talking and decisions, plus a fast code-driven body for movement, combat, mining and building.",
   "main": "src/index.js",
   "scripts": {

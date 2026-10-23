@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.8.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.8.1-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
 **Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, fights, crafts and smelts · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (106 automated tests: 59 unit + 47 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (115 automated tests: 59 unit + 56 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -48,7 +48,7 @@ Every bot starts as a beginner and improves by doing, like a real player. Each s
 
 | Skill | Tiers |
 |---|---|
-| **Building** | 1 Dirt-hut novice: small huts only (flat-roofed box or peaked), misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases in four designs, forgets some windows and torches; can add a storage room · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail; + bunker · 4 Architect (1200 XP, needs mining 3): two-storey houses; + second storey and enchanting room upgrades |
+| **Building** | 1 Dirt-hut novice: small huts only (flat-roofed box or peaked), misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases in four designs, forgets some windows and torches; can add a storage room · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail; + watchtower and farmhouse designs; + bunker · 4 Architect (1200 XP, needs mining 3): two-storey houses; + the end-game manor and hillside fortress; + second storey and enchanting room upgrades |
 | **Mining** | 1 Surface scraper: only stone and ores it can see · 2 Tunneler (60): its own `mine` for coal, copper and iron, with short branches · 3 Prospector (250): every ore, full branch mines and veins · 4 Deep miner (800): tighter, longer branches and bigger veins |
 | **Combat** | 1 Panicky: slow to react, sometimes just runs, flees early · 2 Scrapper (40) · 3 Fighter (200): uses a shield and backs off from creepers · 4 Veteran (700): calm, fights on at lower health |
 | **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
@@ -195,7 +195,7 @@ The terminal window counts as an operator too.
 | `smelt` | uses a nearby or carried furnace and picks fuel automatically |
 | `build` | hut (walls, roof, doorway; `size` 2-7), wall, tower, platform, floor. Picks a flat, open, dry spot within 16 blocks on its own, clears leaves/plants, levels small bumps, fills dips, and mixes materials if one isn't enough. The first hut is saved as home. |
 | `build_base` | a real base in one of several designs, as a resumable project (see below) |
-| `upgrade_base` | improve the base you have: storage room, bunker, second storey, enchanting room |
+| `upgrade_base` | improve the base you have: storage room, bunker, second storey, enchanting room (whichever fit the design) |
 | `farm`, `breed_animals` | a crop farm near home that it tills, plants, harvests and replants; breeding animals (see below) |
 | `build_portal`, `nether_trip` | build and light a Nether portal; a careful round trip to gather one thing (see below) |
 | `mine` | a proper mine: covered entrance away from bases, stairs to the right depth for the ore, branch mining (see below) |
@@ -218,13 +218,27 @@ The terminal window counts as an operator too.
 - `plan_only: true` picks the spot and lists the materials without building anything.
 - When it's finished, the base becomes `home` (any older home is kept as `old_home`), and the entrance is saved too.
 
-**Designs.** Each base picks a design at random from the ones the bot knows (or the one you ask for with `variant`), so not every base looks the same:
+**Designs.** Each base picks a design at random from the ones the bot knows, or uses the one you ask for with `variant`, so not every base looks the same. The bot's newest designs are the likeliest pick, since a good builder mostly builds its best, but older ones still turn up. If the land doesn't suit the design it picked (no room for a manor, no hill to dig into), it tries the next one and says so.
 
-| Style | Designs |
-|---|---|
-| surface | **cottage**: square, log-framed, flat roof · **longhouse**: long and narrow with a peaked gable roof, chests along one wall |
-| underground | **cellar**: square room · **hall**: a long hall with stone pillars |
-| `build` huts | **box** (flat roof) · **peaked** (sloped roof) |
+| Tier | Surface | Underground |
+|---|---|---|
+| 1 | `build` huts: **box** (flat roof) or **peaked** | |
+| 2 | **cottage**: square, log-framed, flat roof · **longhouse**: long and narrow with a peaked roof | **cellar**: square room · **hall**: a long hall with stone pillars |
+| 3 | **watchtower**: a stone tower with a living room, a bedroom and a lookout floor, a ladder all the way up, and a battlemented roof platform · **farmhouse**: L-shaped, with a peaked roof, a kitchen/pantry wing (smoker, barrels), a covered front porch and a yard in the corner of the L | |
+| 4 | **manor** (below) | **hillside fortress** (below) |
+
+**The end-game homes (tier 4).** Both are built around what a late-game player actually uses, so the bot (and you) can do almost everything from home:
+
+| Room | Manor (two storeys, 17-21 wide) | Hillside fortress (dug into a hill) |
+|---|---|---|
+| Storage | ground-floor vault: a wall of double chests, more chests on the back wall, barrels, an ender chest | vault off the great hall: a wall of double chests, barrels, an ender chest |
+| Workshop / forge | crafting table, furnace, blast furnace, smoker, anvil, smithing table, grindstone, stonecutter, loom, cartography and fletching tables, two chests | crafting table, furnace, blast furnace, smoker, anvil, smithing table, grindstone, stonecutter, loom, cartography table |
+| Enchanting | upstairs library: enchanting table with all 15 bookshelves at the right distance, a lectern | a library behind the hall, the same full ring |
+| Beds | 4 beds (one per bot or player) | 3 beds |
+| Brewing | brewing stand, cauldron, chests | its own room with brewing stand, cauldron, chests |
+| Extras | central hall with a ladder upstairs, a balcony over the front door on a covered porch, a peaked roof with attic windows, stone ground floor and wooden upper floor | a stone facade with windows on the hill face, an entry corridor, a pillared great hall 4 blocks high, every face of the dug space sealed |
+
+A medium manor is about 1,400 blocks plus the furniture, so it's a long project. The bot builds the shell first, places whatever furniture it carries, and lists every empty furniture spot ("13 chest, 1 anvil, 15 bookshelf..."). When it later carries any of those, calling `build_base` again on the finished base puts them in place. The hillside fortress needs a hill or cliff at least 7 blocks high within 24 blocks, mostly solid inside.
 
 **Upgrades instead of starting over.** A better builder doesn't abandon its first house: `upgrade_base` adds to the base it already has. Each upgrade is just more cells in the same blueprint, so it's resumable, and the protected zone grows to cover it.
 
@@ -234,6 +248,8 @@ The terminal window counts as an operator too.
 | `bunker` | 3 | surface only: a safe room dug under the house, reached by a ladder shaft from the floor, with a chest |
 | `second_storey` | 4 | surface only: rebuilds the roof as an upper floor with a log band, a ladder and an upstairs bedroom |
 | `enchanting_room` | 4 | a side room with an enchanting table ringed by all 15 bookshelves, one gap to walk in |
+
+Not every upgrade fits every design: a watchtower can take a storage room, a bunker or an enchanting room but not a second storey; a farmhouse takes a storage room, bunker or second storey; the manor and the hillside fortress already have their vault and library built in (a manor can still get a bunker).
 
 The bot's memory lists each base with its design and upgrades, and its needs suggest the upgrades it knows but hasn't built yet. The upgrade code refuses if a new room would cut into someone else's build.
 
@@ -381,7 +397,8 @@ src/body/terrain.js   surface/underground detection, build-site finder
 src/body/builder.js   base blueprints, site choice, resumable build engine
 src/body/motion.js    shared walking/placing helpers
 src/body/mining.js    the mine action: entrance, stairs, branch mining
-src/body/homes.js     base designs (cottage, longhouse, cellar, hall) and upgrades
+src/body/homes.js     base designs (cottage, longhouse, cellar, hall), design choice and upgrades
+src/body/designs.js   tier 3-4 designs: watchtower, farmhouse, manor, hillside fortress
 src/body/farming.js   the farm and breed_animals actions
 src/body/nether.js    portal building and Nether trips
 src/body/placement.js where furniture goes (walls, double chests, beds)

@@ -23,10 +23,10 @@ const perception = require(P + 'src/body/perception')
 function registry () {
   const blocks = ['air', 'stone', 'cobblestone', 'dirt', 'grass_block', 'oak_log', 'birch_log', 'stripped_oak_log', 'iron_ore',
     'deepslate_iron_ore', 'crafting_table', 'furnace', 'chest', 'red_bed', 'oak_leaves', 'water', 'poppy', 'short_grass', 'coal_ore', 'oak_planks', 'birch_planks', 'glass', 'oak_door', 'torch', 'wall_torch', 'lava', 'bedrock', 'oak_slab', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder',
-    'bookshelf', 'enchanting_table', 'farmland', 'wheat', 'carrots', 'potatoes', 'beetroots', 'oak_fence', 'obsidian', 'nether_portal', 'netherrack', 'nether_quartz_ore']
+    'bookshelf', 'enchanting_table', 'farmland', 'wheat', 'carrots', 'potatoes', 'beetroots', 'oak_fence', 'obsidian', 'nether_portal', 'netherrack', 'nether_quartz_ore', 'stone_bricks', 'smoker', 'blast_furnace', 'barrel', 'composter', 'anvil', 'smithing_table', 'grindstone', 'stonecutter', 'loom', 'cartography_table', 'fletching_table', 'lectern', 'ender_chest', 'brewing_stand', 'cauldron', 'lantern']
   const items = ['cobblestone', 'dirt', 'oak_log', 'birch_log', 'oak_planks', 'birch_planks', 'stick', 'crafting_table', 'wooden_pickaxe',
     'stone_pickaxe', 'iron_ingot', 'raw_iron', 'coal', 'furnace', 'bread', 'rotten_flesh', 'iron_sword', 'wooden_axe', 'stone_sword', 'glass', 'oak_door', 'torch', 'chest', 'red_bed', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'gold_ingot', 'redstone', 'minecart', 'ladder',
-    'bookshelf', 'enchanting_table', 'wheat_seeds', 'wheat', 'carrot', 'potato', 'beetroot_seeds', 'beetroot', 'wooden_hoe', 'water_bucket', 'bucket', 'oak_fence', 'obsidian', 'flint_and_steel', 'bone_meal', 'netherrack', 'quartz']
+    'bookshelf', 'enchanting_table', 'wheat_seeds', 'wheat', 'carrot', 'potato', 'beetroot_seeds', 'beetroot', 'wooden_hoe', 'water_bucket', 'bucket', 'oak_fence', 'obsidian', 'flint_and_steel', 'bone_meal', 'netherrack', 'quartz', 'stone_bricks', 'smoker', 'blast_furnace', 'barrel', 'composter', 'anvil', 'smithing_table', 'grindstone', 'stonecutter', 'loom', 'cartography_table', 'fletching_table', 'lectern', 'ender_chest', 'brewing_stand', 'cauldron', 'lantern']
   const r = { blocksByName: {}, itemsByName: {}, items: {}, blocks: {}, foodsByName: {
     bread: { foodPoints: 5, saturation: 6 }, rotten_flesh: { foodPoints: 4, saturation: 0.8 } } }
   blocks.forEach((n, i) => { r.blocksByName[n] = { id: i, name: n }; r.blocks[i] = r.blocksByName[n] })
@@ -42,7 +42,7 @@ function worldBot () {
   const propsMap = new Map()
   bot._props = propsMap
   const mk = (name, p) => ({ name, type: bot.registry.blocksByName[name].id, position: p.clone(), getProperties: () => propsMap.get(key(p)) || {},
-    boundingBox: ['air', 'water', 'lava', 'poppy', 'short_grass', 'torch', 'wall_torch', 'oak_door', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder', 'wheat', 'carrots', 'potatoes', 'beetroots', 'nether_portal'].includes(name) ? 'empty' : 'block', diggable: name !== 'air' && name !== 'water' })
+    boundingBox: ['air', 'water', 'lava', 'poppy', 'short_grass', 'torch', 'wall_torch', 'oak_door', 'rail', 'powered_rail', 'redstone_torch', 'oak_button', 'ladder', 'wheat', 'carrots', 'potatoes', 'beetroots', 'nether_portal', 'lantern'].includes(name) ? 'empty' : 'block', diggable: name !== 'air' && name !== 'water' })
   bot.setBlock = (p, name) => world.set(key(p), name)
   bot.blockAt = (p) => { p = p.floored(); return mk(world.get(key(p)) || (p.y < 64 ? 'stone' : 'air'), p) }
   for (let x = -20; x <= 20; x++) for (let z = -20; z <= 20; z++) bot.setBlock(new Vec3(x, 63, z), 'grass_block')
@@ -1118,4 +1118,206 @@ test('nether trip: through the portal, mines quartz within range, comes back', a
   assert.ok(mem.getPlace('nether_portal_nether'))
   r = await runSkilled(bot, mem, skills, 'nether_trip', { get: 'blaze rods' })
   assert.match(r.text, /not experienced enough to go for blaze_rod/)
+})
+
+// ------------------------------------------------------------------ v0.8.1: tier 3 and 4 designs
+const ALL_FURNITURE = ['chest', 'barrel', 'ender_chest', 'crafting_table', 'furnace', 'blast_furnace', 'smoker', 'anvil', 'smithing_table',
+  'grindstone', 'stonecutter', 'loom', 'cartography_table', 'fletching_table', 'lectern', 'enchanting_table', 'bookshelf', 'brewing_stand', 'cauldron', 'red_bed', 'oak_fence', 'composter']
+function furnishAll (bot, n = 1) {
+  for (const it of ALL_FURNITURE) bot.give(it, it === 'chest' ? 24 * n : it === 'bookshelf' ? 15 * n : it === 'red_bed' ? 4 * n : it === 'oak_fence' ? 16 * n : it === 'barrel' ? 4 * n : n)
+}
+function bigStock (bot, n = 1) {
+  bot.give('oak_planks', 1200 * n); bot.give('stone_bricks', 900 * n); bot.give('oak_log', 200 * n); bot.give('cobblestone', 600 * n)
+  bot.give('glass', 40); bot.give('oak_door', 4); bot.give('torch', 40); bot.give('ladder', 24)
+}
+const count = (bot, name) => bot._items.filter(i => i.name === name).reduce((n, i) => n + i.count, 0)
+
+test('designs: tier 3 adds watchtower and farmhouse; asking for a manor at tier 3 explains what is needed', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bigStock(bot)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  assert.ok(skills.params('building').variants.includes('watchtower'))
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'manor' })
+  assert.strictEqual(r.ok, false)
+  assert.match(r.text, /haven't learned manor designs yet: it needs building tier 4 "Architect"/, r.text)
+})
+
+test('variantOrder: the newest designs are the likeliest, every known design still appears', () => {
+  const known = ['cottage', 'longhouse', 'watchtower', 'farmhouse', 'manor']
+  const first = {}
+  for (let i = 0; i < 2000; i++) { const o = H.variantOrder('surface', known); first[o[0]] = (first[o[0]] || 0) + 1; assert.strictEqual(new Set(o).size, 5) }
+  assert.ok(first.manor > first.watchtower && first.watchtower > first.cottage, JSON.stringify(first))
+  assert.ok(first.cottage > 100, 'old favourites still turn up')
+})
+
+test('watchtower: three floors joined by a ladder, stone walls, battlements, lookout', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bigStock(bot); furnishAll(bot)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'watchtower', size: 'medium' }, 120000)
+  assert.match(r.text, /finished the three-storey medium surface base "base" \(watchtower\)/, r.text)
+  const { p, at } = projAt(mem)
+  const geo = H.baseGeometry(p).geo
+  for (let up = 1; up <= geo.top; up++) assert.strictEqual(bot.blockAt(at(-geo.h + 1, up, 5)).name, 'ladder', `ladder at ${up}`)
+  assert.strictEqual(bot.blockAt(at(-geo.h, 2, 2)).name, 'stone_bricks', 'stone walls')
+  assert.strictEqual(bot.blockAt(at(0, 1, 0)).name, 'oak_door')
+  assert.ok(T.isFirm(bot.blockAt(at(0, geo.top, 3))), 'roof platform')
+  const merlons = [-3, -2, -1, 0, 1, 2, 3].map(ri => bot.blockAt(at(ri, geo.top + 1, 0)).name)
+  assert.ok(merlons.includes('air') && merlons.includes('stone_bricks'), `battlements: ${merlons}`)
+  assert.strictEqual(bot.blockAt(at(2, 5, 2)).name, 'red_bed', 'bedroom on the middle floor')
+  assert.strictEqual(bot.blockAt(at(0, 10, 0)).name, 'glass', 'lookout window')
+})
+
+test('farmhouse: L-shaped with a kitchen wing, a doorway into it, a covered porch and a yard', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bigStock(bot); furnishAll(bot)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 3, mining: 2 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'farmhouse', size: 'medium' }, 120000)
+  assert.match(r.text, /finished the medium surface base "base" \(farmhouse\)/, r.text)
+  const { p, at } = projAt(mem)
+  const { h } = H.baseGeometry(p).geo // E = 9, h = 4
+  assert.strictEqual(bot.blockAt(at(h, 1, 6)).name, 'air', 'doorway into the wing')
+  assert.ok(T.isFirm(bot.blockAt(at(h + 5, 1, 6))), 'wing outer wall')
+  assert.strictEqual(bot.blockAt(at(h + 1, 1, 7)).name, 'smoker', 'kitchen')
+  assert.strictEqual(bot.blockAt(at(h + 3, 1, 1)).name, 'air', 'the yard in the corner of the L is open')
+  assert.ok(T.isFirm(bot.blockAt(at(0, 5, -1))), 'porch roof')
+  assert.strictEqual(bot.blockAt(at(0, 1, -1)).name, 'air', 'under the porch')
+  assert.strictEqual(bot.blockAt(at(-h, 1, -2)).name, 'oak_fence', 'porch post')
+  assert.ok(T.isFirm(bot.blockAt(at(0, 9, 4))), 'roof ridge')
+  assert.strictEqual(bot.blockAt(at(h - 1, 9, 4)).name, 'air', 'peaked: lower toward the sides')
+})
+
+test('manor: the end-game house, fully furnished', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bigStock(bot, 2); furnishAll(bot)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  const xp0 = skills.state('building').xp
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'manor', size: 'small' }, 300000)
+  assert.match(r.text, /finished the two-storey small surface base "base" \(manor\)/, r.text)
+  assert.doesNotMatch(r.text, /Furniture spots still empty/, r.text)
+  const { p, at } = projAt(mem)
+  const g = H.baseGeometry(p).geo // W 17, L 11, h 8, mid 5
+  const name = (ri, up, fi) => bot.blockAt(at(ri, up, fi)).name
+  const up2 = g.H + 1
+  // Structure: stone ground floor, wooden upper floor, interior walls with doorways, ladder, balcony.
+  assert.strictEqual(name(-g.h, 1, 2), 'stone_bricks')
+  assert.strictEqual(name(-g.h, up2 + 1, 2), 'oak_planks')
+  assert.strictEqual(name(-2, 1, 3), 'stone_bricks', 'hall wall')
+  assert.strictEqual(name(-2, 1, g.mid), 'air', 'doorway into the vault')
+  assert.strictEqual(name(2, up2 + 1, g.mid), 'air', 'doorway into the bedrooms')
+  for (let up = 1; up <= up2; up++) assert.strictEqual(name(0, up, g.L - 2), 'ladder', `ladder ${up}`)
+  assert.strictEqual(name(0, up2 + 1, 0), 'oak_door', 'balcony door')
+  assert.ok(T.isFirm(bot.blockAt(at(0, up2, -2))), 'balcony floor')
+  assert.strictEqual(name(0, up2 + 1, -2), 'oak_fence', 'balcony railing')
+  assert.ok(T.isFirm(bot.blockAt(at(0, g.top + 1 + g.mid, g.mid))), 'roof ridge')
+  // Storage vault: a wall of double chests.
+  const vault = []; for (let fi = 1; fi <= g.L - 2; fi++) vault.push(at(-g.h + 1, 1, fi))
+  assert.ok(vault.every(q => bot.blockAt(q).name === 'chest'))
+  assert.ok(vault.filter(q => ['left', 'right'].includes(bot._props.get(`${q.x},${q.y},${q.z}`)?.type)).length >= 8, 'paired into double chests')
+  assert.strictEqual(name(-3, 1, g.L - 2), 'ender_chest')
+  // Workshop.
+  for (const [ri, fi, it] of [[g.h - 1, 1, 'crafting_table'], [g.h - 1, 3, 'blast_furnace'], [3, g.L - 2, 'anvil'], [4, g.L - 2, 'smithing_table'], [4, 1, 'loom']]) assert.strictEqual(name(ri, 1, fi), it)
+  // Library: table, 15 shelves, air between, a gap toward the hall.
+  const cx = -5
+  assert.strictEqual(name(cx, up2 + 1, g.mid), 'enchanting_table')
+  let shelves = 0
+  for (let dr = -2; dr <= 2; dr++) for (let df = -2; df <= 2; df++) {
+    const n = name(cx + dr, up2 + 1, g.mid + df)
+    if (Math.max(Math.abs(dr), Math.abs(df)) === 2) { if (n === 'bookshelf') shelves++ } else if (dr || df) assert.strictEqual(n, 'air', 'air between table and shelves')
+  }
+  assert.strictEqual(shelves, 15)
+  assert.strictEqual(name(cx + 2, up2 + 1, g.mid), 'air', 'the way into the ring')
+  // Bedrooms and brewing.
+  assert.strictEqual([1, 3, 5, 7].filter(fi => name(g.h - 1, up2 + 1, fi) === 'red_bed').length, 4)
+  assert.strictEqual(name(4, up2 + 1, g.L - 2), 'brewing_stand')
+  assert.ok(skills.state('building').xp > xp0 + 170, 'end-game designs are worth a lot of XP')
+  // Upgrades: what's built in is reported, a bunker still fits.
+  let u = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'storage_room' })
+  assert.match(u.text, /manor already has that built in/)
+  u = await runSkilled(bot, mem, skills, 'build_base', {})
+  assert.match(u.text, /upgrade_base: bunker\./, u.text)
+})
+
+test('manor: missing furniture is listed, and bringing it later furnishes the house', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bigStock(bot, 2); bot.give('chest', 4)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'manor', size: 'small' }, 300000)
+  assert.match(r.text, /finished the two-storey small surface base/, r.text)
+  for (const want of [/\d+ chest/, /15 bookshelf/, /1 brewing_stand/, /4 bed/, /1 anvil/]) assert.match(r.text, new RegExp('Furniture spots still empty: .*' + want.source), r.text)
+  r = await runSkilled(bot, mem, skills, 'build_base', {})
+  assert.match(r.text, /already finished.*Furniture spots still empty/, r.text)
+  bot.give('bookshelf', 15); bot.give('enchanting_table', 1)
+  const xp = skills.state('building').xp
+  r = await runSkilled(bot, mem, skills, 'build_base', {}, 120000)
+  assert.match(r.text, /: furnished the two-storey small surface base/, r.text)
+  assert.doesNotMatch(r.text, /bookshelf/, 'shelves are all in')
+  assert.strictEqual(count(bot, 'bookshelf'), 0)
+  assert.ok(skills.state('building').xp - xp < 40, 'furnishing is not paid like a new base')
+})
+
+function buildHill (bot) {
+  // A big hill to the north: solid stone from y 64 to 75 for z <= -6.
+  for (let x = -16; x <= 16; x++) for (let z = -36; z <= -6; z++) for (let y = 64; y <= 75; y++) bot.setBlock(new Vec3(x, y, z), 'stone')
+}
+
+test('hillside fortress: dug into a hill with a facade, great hall, vault, forge, library, bedroom, brewing room', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  buildHill(bot)
+  bigStock(bot); furnishAll(bot); bot.give('stone_pickaxe', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  const r = await runSkilled(bot, mem, skills, 'build_base', { style: 'underground', variant: 'hillside', size: 'small' }, 300000)
+  assert.match(r.text, /finished the small underground base "base" \(hillside\)/, r.text)
+  const { p, at } = projAt(mem)
+  assert.deepStrictEqual(p.f, { x: 0, z: -1 }, 'faces the hill')
+  const g = H.baseGeometry(p).geo
+  const name = (ri, up, fi) => bot.blockAt(at(ri, up, fi)).name
+  assert.strictEqual(name(0, 1, 0), 'oak_door')
+  assert.strictEqual(name(2, 2, 0), 'glass', 'facade windows')
+  assert.strictEqual(name(-3, 3, 0), 'stone_bricks', 'facade frame')
+  assert.strictEqual(name(0, 4, g.mid), 'air', 'the great hall is 4 high')
+  assert.strictEqual(name(2, 2, 6), 'stone_bricks', 'pillar')
+  assert.ok(T.isFirm(bot.blockAt(at(0, 5, g.mid))), 'rock roof over the hall')
+  assert.strictEqual(name(-10, 1, 7), 'chest', 'vault')
+  assert.strictEqual(name(10, 1, 9), 'anvil', 'forge')
+  assert.strictEqual(name(0, 1, g.back + 3), 'enchanting_table')
+  assert.strictEqual(name(0, 1, g.back + 1), 'air', 'way into the library')
+  assert.strictEqual(name(-8, 1, g.back + 1), 'red_bed')
+  assert.strictEqual(name(8, 1, g.back + 3), 'brewing_stand')
+  assert.ok(mem.getPlace('home'))
+})
+
+test('hillside: with no hill nearby it says so; a random pick falls back to another design', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bot.give('stone_pickaxe', 1); bot.give('cobblestone', 300); bot.give('oak_door', 2)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  let r = await runSkilled(bot, mem, skills, 'build_base', { style: 'underground', variant: 'hillside' })
+  assert.strictEqual(r.ok, false)
+  assert.match(r.text, /no hill or cliff nearby/)
+  const rnd = Math.random
+  Math.random = () => 0.99 // weighted order: hillside first
+  try {
+    r = await runSkilled(bot, mem, skills, 'build_base', { style: 'underground', size: 'small', depth: 8 }, 120000)
+  } finally { Math.random = rnd }
+  assert.match(r.text, /I wanted a hillside, but the land here didn't suit it, so I went with a (cellar|hall)/, r.text)
+})
+
+test('upgrades follow the design: a watchtower takes a bunker but not a second storey', async () => {
+  const bot = worldBot(); bot.entity.yaw = 0
+  bigStock(bot); furnishAll(bot); bot.give('stone_pickaxe', 1)
+  const mem = new Memory(null)
+  const skills = new SkillBook(mem, { bot: { skills: { startTiers: { building: 4, mining: 3 } } } })
+  await runSkilled(bot, mem, skills, 'build_base', { style: 'surface', variant: 'watchtower', size: 'small' }, 120000)
+  let r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'second_storey' })
+  assert.match(r.text, /doesn't fit a watchtower/)
+  r = await runSkilled(bot, mem, skills, 'upgrade_base', { upgrade: 'bunker' }, 120000)
+  assert.ok(r.ok, r.text)
+  assert.match(r.text, /added the bunker to the two-storey small surface base "base" \(watchtower \+ bunker\)/, r.text)
 })
