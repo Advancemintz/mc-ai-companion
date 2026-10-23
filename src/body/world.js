@@ -3,6 +3,8 @@
 // Helpers for reading the world: name resolution, mob classification, inventory lookups.
 // LLMs say "wood", "iron", "planks", "cobble"... these helpers map that to real IDs.
 
+const { Vec3 } = require('vec3')
+
 const HOSTILE_MOBS = new Set([
   'zombie', 'zombie_villager', 'husk', 'drowned', 'skeleton', 'stray', 'bogged', 'wither_skeleton',
   'creeper', 'spider', 'cave_spider', 'witch', 'slime', 'magma_cube', 'phantom', 'pillager',
@@ -201,6 +203,33 @@ function bestWeapon (bot) {
     .sort((a, b) => score(b.name) - score(a.name))[0] || null
 }
 
+// Blocks you can see through (for line-of-sight checks: aiming, and "is anyone watching?").
+const SEE_THROUGH = /^(air|cave_air|void_air|water|glass|.*_glass|.*_glass_pane|glass_pane|.*_leaves|iron_bars|.*_fence|.*_fence_gate|ladder|vine|torch|wall_torch|.*_torch|short_grass|tall_grass|fern|.*_carpet|.*_sign|.*_wall_sign|.*_button|lever|rail|.*_rail|.*_door|.*_trapdoor|snow|flower_pot|.*_slab|cobweb|scaffolding|chain|lantern|soul_lantern)$/
+
+// Can something at `from` see the point `to`? Walks the line in small steps and stops at the
+// first block you can't see through. Unloaded blocks count as clear (we can't know better).
+function lineOfSight (bot, from, to, step = 0.3) {
+  const dx = to.x - from.x; const dy = to.y - from.y; const dz = to.z - from.z
+  const len = Math.sqrt(dx * dx + dy * dy + dz * dz)
+  if (len < 0.5) return true
+  const n = Math.ceil(len / step)
+  // The blocks you look from and at don't hide themselves (a chest, a mob's feet).
+  const endKey = `${Math.floor(to.x)},${Math.floor(to.y)},${Math.floor(to.z)}`
+  const startKey = `${Math.floor(from.x)},${Math.floor(from.y)},${Math.floor(from.z)}`
+  let lastKey = ''
+  for (let i = 1; i < n; i++) {
+    const t = i / n
+    const p = { x: Math.floor(from.x + dx * t), y: Math.floor(from.y + dy * t), z: Math.floor(from.z + dz * t) }
+    const key = `${p.x},${p.y},${p.z}`
+    if (key === lastKey || key === endKey || key === startKey) continue
+    lastKey = key
+    const b = bot.blockAt(new Vec3(p.x, p.y, p.z))
+    if (!b) continue
+    if (b.boundingBox === 'block' && !SEE_THROUGH.test(b.name)) return false
+  }
+  return true
+}
+
 const BAD_FOOD = new Set(['rotten_flesh', 'spider_eye', 'poisonous_potato', 'pufferfish', 'chorus_fruit', 'suspicious_stew'])
 
 function bestFood (bot, { allowBad = false } = {}) {
@@ -226,5 +255,6 @@ module.exports = {
   nearestHostile,
   playerEntity,
   bestWeapon,
-  bestFood
+  bestFood,
+  lineOfSight
 }

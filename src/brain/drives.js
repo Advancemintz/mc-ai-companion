@@ -92,6 +92,12 @@ function assessNeeds (bot, { memory, lastChatAt, skills } = {}) {
   } else if (canFarm && supply < 30 && hasItem(bot, /_hoe$|wheat_seeds/)) {
     add('someday', 'no farm yet: start one with farm for a steady food supply (needs a hoe and seeds)')
   }
+  // Exploration: land around home nobody has looked at yet.
+  const exp = skills ? skills.params('exploration') : null
+  if (exp && home && memory?.exploredShare && t < 7000 && outside && bot.health >= 16) {
+    const share = memory.exploredShare(home, exp.radius, home.dimension)
+    if (share < 0.5) add('someday', `most of the land around home is unexplored (${Math.round(share * 100)}% mapped within ${exp.radius} blocks): explore in the daytime to find villages, caves and more`)
+  }
   if (bot.inventory.emptySlotCount() <= 4) add('soon', `inventory almost full (${bot.inventory.emptySlotCount()} free slots): use clean_inventory or deposit`)
 
   // Social

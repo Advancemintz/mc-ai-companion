@@ -14,7 +14,7 @@ function countMatching (bot, re) {
   return bot.inventory.items().filter(i => re.test(i.name)).reduce((n, i) => n + i.count, 0)
 }
 
-function chooseActivity (bot, { memory } = {}) {
+function chooseActivity (bot, { memory, skills = null } = {}) {
   const t = bot.time?.timeOfDay ?? 6000
   const night = t >= 12500 && t < 23300
   const pos = bot.entity.position
@@ -48,10 +48,16 @@ function chooseActivity (bot, { memory } = {}) {
     const tree = bot.findBlock({ matching: ids, maxDistance: 32 })
     if (tree) return { plan: [{ name: 'collect_block', args: { block: 'log', count: 6 } }], why: 'stocking up on wood' }
   }
-  // 6. Company: wander over to the nearest player.
+  // 6. Morning: go and see what's out there.
+  const exp = skills?.params?.('exploration')
+  if (exp && home && t < 6000 && outside && bot.health >= 16 && foodSupply(bot) >= 10 &&
+    memory.exploredShare && memory.exploredShare(home, exp.radius, home.dimension) < 0.6) {
+    return { plan: [{ name: 'explore', args: {} }], why: 'exploring while the day is young' }
+  }
+  // 7. Company: wander over to the nearest player.
   const friend = bot.nearestEntity(e => e.type === 'player' && e !== bot.entity && e.position.distanceTo(pos) > 6 && e.position.distanceTo(pos) < 48)
   if (friend) return { plan: [{ name: 'go_to_player', args: { player: friend.username, distance: 4 } }], why: `hanging out near ${friend.username}` }
-  // 7. Have a little look around.
+  // 8. Have a little look around.
   if (outside && !night) {
     const angle = Math.random() * Math.PI * 2
     const dist = 10 + Math.random() * 8

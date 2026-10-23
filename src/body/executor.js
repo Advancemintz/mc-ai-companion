@@ -52,7 +52,7 @@ function sleep (ms, token) {
 }
 
 class Executor extends EventEmitter {
-  constructor (bot, actions, { memory = null, stuckSeconds = 40, skills = null } = {}) {
+  constructor (bot, actions, { memory = null, stuckSeconds = 40, skills = null, social = null, config = null } = {}) {
     super()
     this.bot = bot
     this.skills = skills // the bot's skill book (tiers change how some actions behave)
@@ -64,6 +64,8 @@ class Executor extends EventEmitter {
     bot.on?.('playerCollect', bump)
     this.actions = actions // map name -> definition
     this.memory = memory // long-term memory, handed to actions as ctx.memory
+    this.social = social // feelings, ownership, thefts (src/brain/social.js), handed to actions as ctx.social
+    this.config = config // the live config, handed to actions as ctx.config
     this.queue = []
     this.current = null // { name, args, token, startedAt, ctx }
     this.running = false
@@ -141,6 +143,7 @@ class Executor extends EventEmitter {
     try { bot.collectBlock?.cancelTask() } catch {}
     try { bot.stopDigging() } catch {}
     try { bot.clearControlStates() } catch {}
+    try { bot.deactivateItem?.() } catch {} // lower a raised shield or a drawn bow
   }
 
   // Pause the current action, run fn (a reflex), then resume.
@@ -226,6 +229,8 @@ class Executor extends EventEmitter {
         bot: this.bot,
         memory: this.memory,
         skills: this.skills,
+        social: this.social,
+        config: this.config,
         token,
         status: '',
         resumeArgs: null, // actions set this so an interrupted step can continue where it left off

@@ -10,6 +10,7 @@
 
 const { goals } = require('mineflayer-pathfinder')
 const W = require('./world')
+const C = require('./combat')
 const log = require('../util/log')
 const { sleep } = require('./executor')
 
@@ -23,8 +24,7 @@ function startReflexes (bot, executor, config, notify) {
   const ignoreUntil = new Map() // entity id -> timestamp; mobs we couldn't reach
   const notIgnored = (e) => (ignoreUntil.get(e.id) || 0) < Date.now()
   // Combat skill: how fast it reacts, how easily it panics, and which tricks it knows.
-  const combat = () => executor.skills?.params('combat') ||
-    { reactionMs: 0, panicChance: 0, fleeBonus: 0, attackRange: 3, useShield: false, creeperDodge: false }
+  const combat = () => executor.skills?.params('combat') || C.DEFAULT_SKILL
   const fleeAt = () => cfg.fleeHealth + (combat().fleeBonus || 0)
 
   bot.on('entityHurt', (entity) => {
@@ -36,36 +36,16 @@ function startReflexes (bot, executor, config, notify) {
       (W.isHostile(e) || W.NEUTRAL_MOBS.has(e.name)))
   })
 
-  async function fight (target) {
-    const label = W.entityLabel(target)
+  async function fight (target, attacker) {
     const skill = combat()
-    const weapon = W.bestWeapon(bot)
-    if (weapon && bot.heldItem?.name !== weapon.name) {
-      try { await bot.equip(weapon, 'hand') } catch {}
-    }
-    if (skill.useShield) {
-      const shield = bot.inventory.items().find(i => i.name === 'shield')
-      if (shield && bot.inventory.slots[45]?.name !== 'shield') { try { await bot.equip(shield, 'off-hand') } catch {} }
-    }
-    if (bot.pvp) bot.pvp.attackRange = skill.attackRange || 3
-    await bot.pvp.attack(target)
-    const started = Date.now()
-    while (target.isValid && bot.pvp.target === target && Date.now() - started < 30000) {
-      if (bot.health <= fleeAt()) break
-      // Fighter tier and up: back off when a creeper gets too close, then go back in.
-      if (skill.creeperDodge && target.name === 'creeper' && target.position.distanceTo(bot.entity.position) < 2.2) {
-        try { bot.pvp.forceStop ? bot.pvp.forceStop() : await bot.pvp.stop() } catch {}
-        bot.pathfinder.setGoal(new goals.GoalInvert(new goals.GoalFollow(target, 5)), true)
-        await sleep(900)
-        bot.pathfinder.setGoal(null)
-        if (!target.isValid) break
-        await bot.pvp.attack(target)
-      }
-      await sleep(200)
-    }
-    const killed = !target.isValid
-    try { bot.pvp.forceStop ? bot.pvp.forceStop() : await bot.pvp.stop() } catch {}
-    return { killed, label }
+    const stats = await C.engage(bot, target, {
+      skill,
+      stopHealth: fleeAt(),
+      maxMs: 30000,
+      radius: Math.max(cfg.defendRadius + 4, 10)
+    })
+    if (attacker) stats.attacker = attacker
+    return stats
   }
 
   async function flee (threat) {
@@ -118,10 +98,14 @@ function startReflexes (bot, executor, config, notify) {
       if (cfg.selfDefense && !fightingAlready) {
         const recentAttacker = lastHurtBy && lastHurtBy.isValid && Date.now() - lastHurtAt < 4000 &&
           lastHurtBy.position.distanceTo(pos) < 8 ? lastHurtBy : null
-        const close = W.nearestHostile(bot, cfg.defendRadius, e => !W.NEVER_AUTO_ATTACK.has(e.name) && notIgnored(e))
-        const target = recentAttacker || close
+        const skill = combat()
+        // A trained fighter deals with the most dangerous monster first; a beginner just
+        // turns on whatever hit it or whatever is nearest.
+        const close = C.nearbyThreats(bot, cfg.defendRadius, e => !W.NEVER_AUTO_ATTACK.has(e.name) && notIgnored(e))
+        const target = skill.prioritize
+          ? C.pickTarget(bot, [recentAttacker, ...close], skill, { attacker: recentAttacker })
+          : (recentAttacker || C.pickTarget(bot, close, skill))
         if (target && !W.NEVER_AUTO_ATTACK.has(target.name)) {
-          const skill = combat()
           // A beginner sometimes just panics and runs instead of fighting.
           if (!recentAttacker && skill.panicChance && Math.random() < skill.panicChance) {
             await executor.interrupt('panic', async () => {
@@ -136,11 +120,15 @@ function startReflexes (bot, executor, config, notify) {
           await executor.interrupt('self-defense', async () => {
             log.reflex(`defending against ${W.entityLabel(target)}`)
             if (!recentAttacker && skill.reactionMs) await sleep(skill.reactionMs) // slow to react
-            const { killed, label } = await fight(target)
+            const st = await fight(target, recentAttacker)
+            const { killed, label } = st
             lastHurtBy = null
             if (!killed) ignoreUntil.set(target.id, Date.now() + 45000)
-            executor.skills?.award('combat', killed ? 6 : 2, killed ? `killed a ${label}` : '')
-            notify(`[reflex] A ${label} came at you; ${killed ? 'you killed it' : 'you fought it off'}. Health ${Math.round(bot.health)}/20.`, false)
+            const extra = st.kills > 1 ? 4 * (st.kills - 1) : 0
+            executor.skills?.award('combat', (killed ? 6 : 2) + extra + Math.min(4, st.crits), killed ? `killed a ${label}` : '')
+            const tricks = [st.crits && `${st.crits} critical hit${st.crits > 1 ? 's' : ''}`, st.arrows && `${st.arrows} arrow${st.arrows > 1 ? 's' : ''}`, st.ate && 'backed off to eat'].filter(Boolean)
+            const others = st.labels.filter((l, i) => i > 0 || l !== label)
+            notify(`[reflex] A ${label} came at you; ${killed ? 'you killed it' : 'you fought it off'}${others.length ? ` (and dealt with ${others.join(', ')})` : ''}${tricks.length ? ` [${tricks.join(', ')}]` : ''}. Health ${Math.round(bot.health)}/20.`, false)
           })
           return
         }

@@ -12,9 +12,10 @@ const { chooseActivity } = require('./autopilot')
 const log = require('../util/log')
 
 class Brain {
-  constructor ({ bot, llm, executor, actions, config, memory = null, admin = null, skills = null }) {
+  constructor ({ bot, llm, executor, actions, config, memory = null, admin = null, skills = null, social = null }) {
     this.bot = bot
     this.skills = skills || executor.skills || null
+    this.social = social || executor.social || null
     this.memory = memory
     this.admin = admin
     this.paused = false
@@ -34,7 +35,7 @@ class Brain {
     this.lastThinkAt = Date.now()
     this.lastErrorNotice = 0
     this.lastChatAt = Date.now()
-    this.system = buildSystemPrompt({ config, botName: bot.username, version: bot.version, actions })
+    this.refreshSystemPrompt()
     this._wireExecutor()
     this._startIdleLoop()
   }
@@ -72,6 +73,15 @@ class Brain {
     if (speaker && this.executor.isIdle() && typeof this.bot.lookAt === 'function') {
       Promise.resolve().then(() => this.bot.lookAt(speaker.position.offset(0, 1.6, 0))).catch(() => {})
     }
+  }
+
+  // Actions the model is told about: social actions the operators switched off are left out.
+  visibleActions () {
+    return Object.fromEntries(Object.entries(this.actions).filter(([, def]) => !def.enabled || def.enabled(this.config, this.social) !== false))
+  }
+
+  refreshSystemPrompt () {
+    this.system = buildSystemPrompt({ config: this.config, botName: this.bot.username, version: this.bot.version, actions: this.visibleActions(), social: this.social })
   }
 
   isOtherBot (username) {
@@ -140,7 +150,7 @@ class Brain {
       // The model keeps choosing to do nothing (or can't be reached): let the body do something normal.
       const llmDown = Date.now() - this.lastErrorNotice < 120000
       if (this.config.bot.autopilot !== false && (this.idleStreak >= 2 || llmDown)) {
-        const pick = chooseActivity(this.bot, { memory: this.memory })
+        const pick = chooseActivity(this.bot, { memory: this.memory, skills: this.skills })
         if (pick) {
           this.idleStreak = 0
           this.lastThinkAt = Date.now()
@@ -250,6 +260,15 @@ class Brain {
         .filter(p => p.entity && p.username !== bot.username && p.entity.position.distanceTo(bot.entity.position) < 32)
         .map(p => p.username)
       parts.push(this.memory.summary({ pos: bot.entity.position, dimension: bot.game?.dimension || 'overworld', playersNearby: nearby }))
+      if (this.social) {
+        try {
+          const Z = require('../body/zones')
+          const text = this.social.describe({ nearby, pos: bot.entity.position.floored(), dimension: bot.game?.dimension || 'overworld', zones: Z.getZones(this.memory) })
+          if (text) parts.push(text)
+        } catch (err) {
+          log.debug('social describe failed: ' + err.message)
+        }
+      }
     }
     return parts.join('\n')
   }
@@ -280,7 +299,8 @@ class Brain {
     const cmd = (rawCmd || '').toLowerCase()
     const arg = rest.join(' ')
     const PUBLIC = ['help', 'status', 'goals', 'skills']
-    const ADMIN = ['stop', 'come', 'follow', 'think', 'reset', 'pause', 'resume', 'autonomy', 'forget', 'wipe', 'op', 'deop', 'quit', 'skill', 'resetskills']
+    const ADMIN = ['stop', 'come', 'follow', 'think', 'reset', 'pause', 'resume', 'autonomy', 'forget', 'wipe', 'op', 'deop', 'quit', 'skill', 'resetskills',
+      'feelings', 'feel', 'protect', 'unprotect', 'social', 'suspects', 'confess']
     if (!PUBLIC.includes(cmd) && !ADMIN.includes(cmd)) return false // not a command: normal chat
 
     const who = fromConsole ? 'Console' : username
@@ -295,8 +315,72 @@ class Brain {
 
     switch (cmd) {
       case 'help':
-        this.say('Talk to me normally. Anyone: !status, !goals, !skills. Operators: !stop, !come, !follow, !think, !pause, !resume, !autonomy on|off, !reset, !forget <player>, !wipe confirm, !op/!deop <name>, !quit, !skill <name|all> tier|cap|xp <n> / natural / nocap / lock / unlock / reset, !resetskills confirm')
+        this.say('Talk to me normally. Anyone: !status, !goals, !skills. Operators: !stop, !come, !follow, !think, !pause, !resume, !autonomy on|off, !reset, !forget <player>, !wipe confirm, !op/!deop <name>, !quit, !skill <name|all> tier|cap|xp <n> / natural / nocap / lock / unlock / reset, !resetskills confirm. Social: !social [feature on|off], !feelings [player], !feel <player> <-100..100|reset>, !protect/!unprotect <player>, !suspects, !confess')
         return true
+      case 'social': {
+        if (!this.social) { this.say('I have no social system.'); return true }
+        const [feature, state] = rest.map(x => x.toLowerCase())
+        if (!feature) { this.say(this.social.status()); return true }
+        const names = { theft: 'theftDetection', thefts: 'theftDetection', theftdetection: 'theftDetection', detection: 'theftDetection', steal: 'stealing', feeling: 'feelings', owner: 'ownership', sabotaging: 'sabotage' }
+        const f = names[feature] || feature
+        if (!/^(on|off)$/.test(state || '')) { this.say('Usage: !social <all|feelings|ownership|stealing|theft|sabotage> on|off'); return true }
+        try {
+          this.social.setFeature(f, state === 'on')
+          this.refreshSystemPrompt()
+          tellBrain(`${who} (a server operator) switched ${f === 'all' ? 'your whole social side (feelings, stealing, sabotage...)' : f} ${state}.`)
+          this.say(this.social.status())
+        } catch (err) {
+          this.say(err.message)
+        }
+        return true
+      }
+      case 'feelings': {
+        if (!this.social) { this.say('I have no social system.'); return true }
+        const list = this.social.feelings().filter(f => !arg || f.name.toLowerCase() === arg.toLowerCase())
+        if (!list.length) { this.say(arg ? `No feelings about ${arg} yet.` : 'No strong feelings about anyone yet.'); return true }
+        this.say('Feelings: ' + list.slice(0, 10).map(f => `${f.name} ${f.score} (${f.level}${this.social.isProtected(f.name) ? ', protected' : ''})${arg && f.why.length ? ` because: ${f.why.join('; ')}` : ''}`).join(', '))
+        return true
+      }
+      case 'feel': {
+        if (!this.social) { this.say('I have no social system.'); return true }
+        const [player, value] = rest
+        if (!player || value === undefined) { this.say('Usage: !feel <player> <-100..100> or !feel <player> reset'); return true }
+        if (/^reset$/i.test(value)) {
+          this.social.resetFeeling(player)
+          tellBrain(`${who} (a server operator) reset your feelings about ${player} to neutral.`)
+          this.say(`Feelings about ${player} reset.`)
+          return true
+        }
+        const n = Number(value)
+        if (!Number.isFinite(n)) { this.say('Usage: !feel <player> <-100..100>'); return true }
+        const score = this.social.setFeeling(player, n)
+        tellBrain(`${who} (a server operator) set how you feel about ${player} to ${score} (${this.social.level(player)}).`)
+        this.say(`I now feel ${score} (${this.social.level(player)}) about ${player}.`)
+        return true
+      }
+      case 'protect':
+      case 'unprotect': {
+        if (!this.social) { this.say('I have no social system.'); return true }
+        if (!arg) { this.say(`Usage: !${cmd} <player>`); return true }
+        this.social.protect(arg, cmd === 'protect')
+        this.refreshSystemPrompt()
+        tellBrain(cmd === 'protect' ? `${who} (a server operator) protected ${arg}: you must never steal from or sabotage them.` : `${who} (a server operator) removed ${arg}'s protection.`)
+        this.say(cmd === 'protect' ? `${arg} is protected: I'll never steal from or sabotage them.` : `${arg} is no longer protected${this.social.cfg().protected.some(p => p.toLowerCase() === arg.toLowerCase()) ? ' (but the config still lists them)' : ''}.`)
+        return true
+      }
+      case 'suspects': {
+        if (!this.social) { this.say('I have no social system.'); return true }
+        const list = this.social.thefts(7 * 24 * 3600 * 1000)
+        this.say(list.length ? 'Thefts from me: ' + list.slice(-3).map(t => this.social.describeTheft(t)).join(' | ') : 'Nothing has gone missing from my chests (that I know of).')
+        return true
+      }
+      case 'confess': {
+        if (!this.social) { this.say('I have no social system.'); return true }
+        const took = this.social.myThefts().slice(-4).map(t => `took ${Object.entries(t.items).map(([n, c]) => `${c} ${n}`).join(', ')} from ${t.victim}`)
+        const sab = this.social.mySabotage().slice(-3).map(t => `sabotaged ${t.victim} (${t.kind})`)
+        this.say(took.length || sab.length ? `Fine... I ${[...took, ...sab].join('; ')}.` : "I haven't done anything! (Really.)")
+        return true
+      }
       case 'skills':
         this.say(this.skills ? 'Skills: ' + this.skills.summaryShort() : 'I have no skill system.')
         return true
@@ -385,6 +469,7 @@ class Brain {
       case 'forget': {
         if (!arg) { this.say('Usage: !forget <player>'); return true }
         const ok = this.memory?.forgetPlayer(arg)
+        this.social?.resetFeeling(arg)
         this.history = []
         this.say(ok ? `I have forgotten everything about ${arg}.` : `I had nothing on ${arg}.`)
         return true

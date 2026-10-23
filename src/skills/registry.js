@@ -94,34 +94,55 @@ const SKILLS = {
   combat: {
     label: 'Combat',
     about: 'fighting monsters (and, if it comes to it, players)',
+    // Combat params (read by src/body/combat.js):
+    //   reactionMs     delay before answering a monster that hasn't hit you yet
+    //   panicChance    chance a beginner just runs instead of fighting
+    //   fleeBonus      added to reflexes.fleeHealth (negative = fights on at lower health)
+    //   attackRange    melee reach used when closing in
+    //   timedSwings    wait for the weapon's attack cooldown (full-damage hits) instead of spamming
+    //   prioritize     pick the most dangerous target (creepers close by, skeletons, witches) instead of the nearest
+    //   eatAt          health at which it backs off mid-fight to eat (0 = never)
+    //   useShield      raise a shield between swings
+    //   creeperDodge   back away from a creeper that's about to blow
+    //   strafe         circle the target instead of standing still ('none' | 'steady' | 'random')
+    //   bow            use a bow on skeletons, creepers and other ranged/explosive mobs at range
+    //   bowRange       furthest shot it will take; bowLead = aim ahead of moving targets
+    //   crits          chance to time a jump so the hit lands while falling (critical hit, +50% damage)
     tiers: [
       {
         name: 'Panicky',
         xp: 0,
-        can: 'swing at things, badly: slow to react and quick to run',
+        can: 'swing at things, badly: slow to react, flails instead of timing swings, and quick to run',
         next: 'survive fights against zombies and spiders',
-        params: { reactionMs: 900, panicChance: 0.35, fleeBonus: 4, attackRange: 2.6, useShield: false, creeperDodge: false }
+        params: { reactionMs: 900, panicChance: 0.35, fleeBonus: 4, attackRange: 2.6, timedSwings: false, prioritize: false, eatAt: 0, useShield: false, creeperDodge: false, strafe: 'none', bow: false, bowRange: 0, bowLead: false, crits: 0 }
       },
       {
         name: 'Scrapper',
         xp: 40,
-        can: 'hold your own against common monsters',
+        can: 'hold your own against common monsters: you time your swings for full damage, deal with the most dangerous monster first, and back off to eat when a fight goes badly',
         next: 'win more fights, including skeletons and creepers',
-        params: { reactionMs: 350, panicChance: 0.1, fleeBonus: 1, attackRange: 3, useShield: false, creeperDodge: false }
+        params: { reactionMs: 350, panicChance: 0.1, fleeBonus: 1, attackRange: 3, timedSwings: true, prioritize: true, eatAt: 9, useShield: false, creeperDodge: false, strafe: 'none', bow: false, bowRange: 0, bowLead: false, crits: 0 }
       },
       {
         name: 'Fighter',
         xp: 200,
-        can: 'fight properly: block with a shield, back off from creepers before they blow',
-        next: 'keep winning fights; get iron gear',
-        params: { reactionMs: 150, panicChance: 0, fleeBonus: 0, attackRange: 3, useShield: true, creeperDodge: true }
+        can: 'fight properly: block with a shield, back off from creepers before they blow, strafe around your target instead of standing still, and shoot skeletons and creepers with a bow at short range (carry a bow and arrows)',
+        next: 'keep winning fights; get iron gear and a bow',
+        params: { reactionMs: 150, panicChance: 0, fleeBonus: 0, attackRange: 3, timedSwings: true, prioritize: true, eatAt: 11, useShield: true, creeperDodge: true, strafe: 'steady', bow: true, bowRange: 16, bowLead: false, crits: 0 }
       },
       {
         name: 'Veteran',
         xp: 700,
-        can: 'stay calm under pressure: fight on at lower health and protect others',
-        next: 'future tiers will add bows and critical hits',
-        params: { reactionMs: 50, panicChance: 0, fleeBonus: -2, attackRange: 3, useShield: true, creeperDodge: true }
+        can: 'stay calm under pressure: fight on at lower health, land critical hits (jump and strike on the way down), and take longer bow shots that lead moving targets',
+        next: 'win many more fights; the best fighters crit every swing and pick creepers off from far away',
+        params: { reactionMs: 50, panicChance: 0, fleeBonus: -2, attackRange: 3, timedSwings: true, prioritize: true, eatAt: 11, useShield: true, creeperDodge: true, strafe: 'steady', bow: true, bowRange: 24, bowLead: true, crits: 0.6 }
+      },
+      {
+        name: 'Champion',
+        xp: 1600,
+        can: 'fight like a pro: a critical hit almost every swing, unpredictable strafing, and long-range archery that drops skeletons and creepers before they get close',
+        next: 'top tier: keep your gear sharp',
+        params: { reactionMs: 0, panicChance: 0, fleeBonus: -3, attackRange: 3, timedSwings: true, prioritize: true, eatAt: 12, useShield: true, creeperDodge: true, strafe: 'random', bow: true, bowRange: 32, bowLead: true, crits: 0.95 }
       }
     ]
   },
@@ -190,6 +211,50 @@ const SKILLS = {
     ]
   },
 
+  // Exploration params (read by src/body/explore.js):
+  //   radius       how far from home a trip may go (blocks)
+  //   minutes      longest trip
+  //   hop          blocks walked between looks around
+  //   notices      what it recognises: biome, village, cave, lava, structure, base (someone's base)
+  //   scanRadius   how far it looks for finds at each stop
+  //   smartDir     pick the least-explored direction (otherwise a random new one)
+  //   marker       leave a torch on a cobblestone post at big finds
+  //   safety       extra minutes of daylight it keeps in hand for the walk home
+  exploration: {
+    label: 'Exploration',
+    about: 'scouting new land and remembering what is out there',
+    tiers: [
+      {
+        name: 'Wanderer',
+        xp: 0,
+        can: 'short trips with `explore` (up to 96 blocks from home, about 3 minutes): you notice biomes and villages you walk through, and head home before dark or when hurt',
+        next: 'take a few trips in different directions',
+        params: { radius: 96, minutes: 3, hop: 16, notices: ['biome', 'village'], scanRadius: 24, smartDir: false, marker: false, safety: 2.5 }
+      },
+      {
+        name: 'Scout',
+        xp: 50,
+        can: 'trips up to 192 blocks (6 minutes); you also spot caves, lava and other people\'s bases',
+        next: 'explore further out and find a village or a cave',
+        params: { radius: 192, minutes: 6, hop: 20, notices: ['biome', 'village', 'cave', 'lava', 'base'], scanRadius: 32, smartDir: true, marker: false, safety: 2 }
+      },
+      {
+        name: 'Pathfinder',
+        xp: 200,
+        can: 'trips up to 384 blocks (10 minutes), always toward land you haven\'t seen; you recognise structures (temples, outposts, dungeons, ruined portals, mineshafts...)',
+        next: 'map the land around home and find structures',
+        params: { radius: 384, minutes: 10, hop: 24, notices: ['biome', 'village', 'cave', 'lava', 'base', 'structure'], scanRadius: 40, smartDir: true, marker: false, safety: 1.5 }
+      },
+      {
+        name: 'Cartographer',
+        xp: 600,
+        can: 'long expeditions up to 768 blocks (15 minutes); you mark big finds with a torch on a cobblestone post so they are easy to find again',
+        next: 'top tier: keep the map up to date',
+        params: { radius: 768, minutes: 15, hop: 32, notices: ['biome', 'village', 'cave', 'lava', 'base', 'structure'], scanRadius: 48, smartDir: true, marker: true, safety: 1.2 }
+      }
+    ]
+  },
+
   nether: {
     label: 'The Nether',
     about: 'portals, and surviving and gathering in the Nether',
@@ -237,6 +302,7 @@ const ACTION_SKILLS = {
   mine: { skill: 'mining', minTier: 2 },
   attack: { skill: 'combat', minTier: 1 },
   guard: { skill: 'combat', minTier: 1 },
+  explore: { skill: 'exploration', minTier: 1 },
   build_railway: { skill: 'railways', minTier: 1 },
   farm: { skill: 'farming', minTier: 1 },
   breed_animals: { skill: 'farming', minTier: 3 },

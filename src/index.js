@@ -22,6 +22,8 @@ const { protectMovements } = require('./body/zones')
 const { startIdleBehaviors } = require('./body/idle')
 const { startRailOffers } = require('./brain/railOffers')
 const { SkillBook } = require('./skills/skillbook')
+const { Social } = require('./brain/social')
+const { startSocialSenses } = require('./brain/socialSenses')
 const { AdminControl, parseSayCommand } = require('./brain/admin')
 const log = require('./util/log')
 
@@ -47,6 +49,7 @@ log.info(`Memory file: ${memory.file}`)
 const admin = new AdminControl(config, memory)
 const skills = new SkillBook(memory, config)
 log.info(`Skills: ${skills.summaryShort()}`)
+const social = new Social(memory, config, { botName: config.minecraft.username })
 
 let current = null // { bot, brain, executor }
 let reconnectDelay = 5000
@@ -99,9 +102,10 @@ function createBot () {
     bot.pvp.movements = movements
     bot.pvp.attackRange = 3
 
-    const executor = new Executor(bot, actions, { memory, stuckSeconds: config.bot.stuckSeconds })
+    social.botName = bot.username // the real in-game name (a Microsoft login may differ from the config)
+    const executor = new Executor(bot, actions, { memory, stuckSeconds: config.bot.stuckSeconds, social, config })
     skills.attach(executor)
-    const brain = new Brain({ bot, llm, executor, actions, config, memory, admin, skills })
+    const brain = new Brain({ bot, llm, executor, actions, config, memory, admin, skills, social })
     skills.removeAllListeners('levelUp')
     skills.on('levelUp', (u) => {
       const label = require('./skills/registry').SKILLS[u.skill].label
@@ -113,6 +117,7 @@ function createBot () {
     startSenses(bot, brain, config)
     startIdleBehaviors(bot, executor)
     startRailOffers(bot, brain, memory, config)
+    startSocialSenses(bot, brain, social, config)
     current = { bot, brain, executor }
 
     bot.on('chat', (username, message) => {

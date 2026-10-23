@@ -3,8 +3,28 @@
 Every version so far. Newest first.
 
 > **Status:** everything below was built and tested against simulated worlds and mock LLM servers
-> (115 automated tests: 59 unit + 56 simulated-world). Version 0.1 has been run on a real server; later versions have not been
+> (157 automated tests: 75 unit + 82 simulated-world). Version 0.1 has been run on a real server; later versions have not been
 > played on a real server yet. Expect tuning as real-world reports come in.
+
+## 0.9.0: Real fighting, exploring, and a social life
+
+- **Combat tiers filled in** (the old "future tiers will add bows and critical hits"). A new fighting engine (`src/body/combat.js`) runs the self-defense reflex, `attack`, `guard` and blaze hunting:
+  - *Scrapper (2):* times every swing to the weapon's cooldown for full damage, fights the most dangerous monster first (a creeper walking up, skeletons, witches), and backs off to eat when a fight goes badly.
+  - *Fighter (3):* shield between swings, steps back from creepers after every hit, strafes around its target, and shoots skeletons, creepers and other ranged mobs with a bow up to 16 blocks away. Aim uses real arrow physics.
+  - *Veteran (4):* critical hits (jump, strike on the way down) and longer bow shots that lead moving targets.
+  - *Champion (5, new, 1600 XP):* a crit nearly every swing, unpredictable strafing, bow out to 32 blocks.
+  - `attack "hostile"` goes for the most dangerous monster around, and a fight finishes off anything else still coming at the bot. Kills with crits earn a little extra XP.
+- **New Exploration skill** (4 tiers) and the **`explore`** action: heads for land it hasn't seen (an explored map is kept in memory), looks around every few dozen blocks, remembers biomes, villages, caves, lava, structures and other people's bases (saving villages, caves and structures as places), and comes home before nightfall, when hurt or hungry, or at the edge of its range. Interrupted trips resume. Cartographers mark big finds with a torch post. Needs and the autopilot suggest exploring on mornings when the area around home is still unknown.
+- **Feelings, property and mischief** (new `social` section in the config, built for bot-only servers):
+  - *Feelings:* a lasting -100..+100 score for every player, moved by gifts, hits, deaths, griefing and theft, nudged (within limits) by the model with `adjust_feelings`, drifting slowly back toward neutral. Shown in STATE with the reasons.
+  - *Ownership:* the bot knows whose base a chest or block is in: its own, ones it was told about, and ones it works out by watching who hangs around, opens chests or sleeps where. New `whose` action. `deposit` and `withdraw` never use someone else's chest any more.
+  - *Noticing theft:* it remembers what's in its chests and notices when one comes up short, with ranked suspects (seen opening it, or hanging around). New `check_chests` action. It also notices live when someone opens its chest or breaks its base.
+  - *Sneaky stealing:* `steal` only from players it dislikes enough, checks for witnesses (walls block the view), takes a modest share of the most useful items and never empties a chest.
+  - *Sabotage:* only at deep hatred, small and non-destructive (take their torches, harvest their crops without replanting, block their door with one block), unseen, with a cooldown.
+  - *Operator controls:* `!social`, `!social <feature> on|off` (switched-off actions vanish from the model's list), `!feelings`, `!feel`, `!protect`/`!unprotect`, `!suspects`, `!confess`. Protected players are never stolen from or sabotaged. `!forget <player>` also resets feelings.
+- Line-of-sight checks (`W.lineOfSight`) used for aiming and for witnesses.
+- The simulated-world harness moved to `sim/harness.js` so new sim files can share it; it now has chests with contents. `npm run test:sim` runs all sim files.
+- Tests: 42 new (5 combat maths, 10 social, 1 brain/commands; 11 simulated fights with physics and real arrows, 15 social and exploration sims).
 
 ## 0.8.1: More homes, and end-game ones
 

@@ -330,3 +330,53 @@ test('skills show up in the state and operators can change them with !skill', as
   assert.match(llm.calls[0].messages.at(-1).content, /Your skills:\n- Building tier 2\/4 "Cabin builder"/)
   assert.match(llm.calls[0].system, /You get better by doing/)
 })
+
+test('social: feelings and rules reach the model, operators control it all with ! commands', async () => {
+  const { Social } = require('../src/brain/social')
+  const { AdminControl } = require('../src/brain/admin')
+  const sn = require('../src/body/sneaky')
+  const bot = fakeBot()
+  const memory = new Memory(null)
+  const cfgA = { ...config, bot: { ...config.bot, admins: ['Mod'] }, social: {} }
+  const social = new Social(memory, cfgA, { botName: bot.username })
+  const actions = { stop: { description: 's', params: {}, run: async () => 'stopped' }, steal: sn.stealAction, sabotage: sn.sabotageAction, adjust_feelings: sn.adjustFeelingsAction }
+  const executor = new Executor(bot, actions, { memory, social })
+  const llm = scriptedLLM([{ say: '', actions: [] }, { say: '', actions: [] }])
+  const brain = new Brain({ bot, llm, executor, actions, config: cfgA, memory, admin: new AdminControl(cfgA, memory), social })
+  assert.match(brain.system, /- steal\(/)
+  assert.match(brain.system, /Stealing is possible but it's a big step/)
+
+  brain.onPlayerChat('Steve', '!feel slip -90')
+  assert.match(bot.said.at(-1), /Only server operators/)
+  brain.onPlayerChat('Mod', '!feel slip -90')
+  assert.match(bot.said.at(-1), /I now feel -90 \(deep hatred\) about slip/)
+  brain.onPlayerChat('Mod', '!protect slip')
+  assert.strictEqual(social.feeling('slip'), -50)
+  assert.match(bot.said.at(-1), /slip is protected/)
+  brain.onPlayerChat('Mod', '!feelings')
+  assert.match(bot.said.at(-1), /Feelings: slip -50 \(hate, protected\)/)
+  brain.onPlayerChat('Mod', '!social stealing off')
+  assert.match(bot.said.at(-1), /stealing off/)
+  assert.doesNotMatch(brain.system, /- steal\(/) // the model isn't even told about it
+  assert.doesNotMatch(brain.system, /Stealing is possible/)
+  assert.match(brain.system, /- sabotage\(/)
+  brain.onPlayerChat('Mod', '!social all off')
+  assert.doesNotMatch(brain.system, /- (sabotage|adjust_feelings)\(/)
+  brain.onPlayerChat('Mod', '!social all on')
+  brain.onPlayerChat('Mod', '!social stealing on')
+  assert.match(brain.system, /- steal\(/)
+  brain.onPlayerChat('Mod', '!suspects')
+  assert.match(bot.said.at(-1), /Nothing has gone missing/)
+  brain.onPlayerChat('Mod', '!confess')
+  assert.match(bot.said.at(-1), /I haven't done anything/)
+  brain.onPlayerChat('Mod', '!forget slip')
+  assert.strictEqual(social.feeling('slip'), 0)
+
+  social.adjust('boot', -30, 'stole my wheat')
+  bot.players.boot = { username: 'boot', entity: { type: 'player', username: 'boot', position: bot.entity.position.offset(3, 0, 0) } }
+  brain.onPlayerChat('boot', 'hey')
+  await until(() => llm.calls.length === 1)
+  const state = llm.calls[0].messages.at(-1).content
+  assert.match(state, /How you feel about people: boot -30 \(dislike\) \[stole my wheat\]/)
+  assert.match(state, /Social rules: stealing allowed from people at -20 or worse/)
+})

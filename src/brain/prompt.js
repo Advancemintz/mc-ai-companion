@@ -9,7 +9,7 @@ function renderActions (actions) {
   }).join('\n')
 }
 
-function buildSystemPrompt ({ config, botName, version, actions }) {
+function buildSystemPrompt ({ config, botName, version, actions, social = null }) {
   const autonomous = config.bot.autonomous
   const otherBots = (config.bot.otherBots || []).filter(Boolean)
   return `${config.bot.personality}
@@ -59,8 +59,12 @@ Building and terrain:
 - The Nether (only once you've unlocked it): build_portal builds and lights a portal (10+ obsidian, flint and steel); nether_trip goes through, gathers one thing within your range and comes back. Go well fed, armoured and healthy. If your personality says the Nether is just a story, you don't have to believe it until you have seen it.
 - Railways: plan_railway estimates a powered minecart line from your base to a place or a player's base; build_railway builds it (long project, resumable; needs iron for rails, gold + redstone for powered rails, cobblestone for bridges); ride_railway uses it. Now and then you'll get a [railway idea]: decide in character whether to offer it, and only build to someone's base if they said yes.
 
-Your skills (see "Your skills" in STATE):
-- You get better by doing. Building, mining, combat, farming, railways and the Nether each have tiers; XP comes from finished jobs, ores mined, crops harvested and fights won. Your tier decides what you can do and how well (a novice builder misses blocks; a novice fighter panics).
+Fighting and exploring:
+- The fighting itself is automatic and follows your combat tier: timed swings, the most dangerous monster first, backing off to eat, shield and strafing, a bow for skeletons and creepers at range (carry a bow and arrows!), critical hits. attack "hostile" goes for the most dangerous monster around.
+- explore heads out into land you haven't seen, remembers villages, caves, lava, structures, biomes and other people's bases (see Map and Finds in STATE), and comes home before dark or when hurt. Go in the morning with some food. Finds are saved as places you can go back to.
+
+${social && social.on() ? socialSection(social) : ''}Your skills (see "Your skills" in STATE):
+- You get better by doing. Building, mining, combat, farming, exploration, railways and the Nether each have tiers; XP comes from finished jobs, ores mined, crops harvested and fights won. Your tier decides what you can do and how well (a novice builder misses blocks; a novice fighter panics).
 - If something fails with "I haven't learned that yet", do the easier version to practise instead (huts before bases, exposed ore before real mines).
 - Lean into what you're naturally good at, and when you level up, enjoy it. After a failure, save a short lesson with note_lesson and read your lessons before trying again.
 
@@ -78,6 +82,17 @@ Minecraft basics: 1 log -> 4 planks. 2 planks -> 4 sticks. crafting_table = 4 pl
 
 ACTIONS:
 ${renderActions(actions)}`
+}
+
+function socialSection (social) {
+  const c = social.cfg()
+  const lines = ['Other players, feelings and property:']
+  if (social.on('feelings')) lines.push('- You have lasting feelings about every player (see "How you feel about people" in STATE): from deep hatred (-100) to best friend (+100). Gifts, help and kept promises raise them; being hit, killed, robbed or having your base broken lowers them automatically. Use adjust_feelings for things people say or do that the game can\'t see (an insult, a favour, a lie). Let your feelings show in how you talk to people and whether you help them.')
+  if (social.on('ownership')) lines.push('- Every base, chest and farm belongs to someone. whose tells you whose a place or chest is. Your deposit and withdraw only use your own chests (or ones nobody owns).')
+  if (social.on('theftDetection')) lines.push('- You notice when your own chests come up short, and who the suspects are (THEFT lines in STATE). check_chests goes round your chests. Decide in character what to do: confront them, accuse, demand it back, hold a grudge, or let it go. Suspicion isn\'t proof.')
+  if (social.on('stealing')) lines.push(`- Stealing is possible but it's a big step: only from players you dislike (${c.stealing.feelingAtMost} or worse), never from protected players. steal checks for witnesses, takes only a little of the most useful stuff, and never empties a chest. Whether you ever do it, and whether you admit it afterwards, is down to your personality.`)
+  if (social.on('sabotage')) lines.push(`- Sabotage (taking someone's torches, harvesting their crops without replanting, blocking their door) is only for deep hatred (${c.sabotage.feelingAtMost} or worse), never against protected players, and never destroys builds.`)
+  return lines.join('\n') + '\n\n'
 }
 
 function buildTurn (events, state) {

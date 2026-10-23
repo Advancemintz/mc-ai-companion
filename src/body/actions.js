@@ -16,6 +16,8 @@ const B = require('./builder')
 const PL = require('./placement')
 const H = require('./homes')
 const Z = require('./zones')
+const C = require('./combat')
+const SN = require('./sneaky')
 
 // ------------------------------------------------------------------ shared helpers
 
@@ -393,21 +395,24 @@ actions.collect_block = {
 }
 
 actions.attack = {
-  description: 'Fight and kill a mob or player. target can be a mob type (zombie, cow, skeleton), "hostile" for the nearest monster, or a player name. count = how many to kill.',
+  description: 'Fight and kill a mob or player. target can be a mob type (zombie, cow, skeleton), "hostile" for the most dangerous monster nearby, or a player name. count = how many to kill. Uses your combat skill: timed swings, bow shots at skeletons and creepers (carry a bow and arrows), shield, strafing, critical hits, backing off to eat.',
   params: { target: 'mob type, "hostile", or player name', count: 'how many (default 1)' },
   timeoutSeconds: 240,
   run: async (ctx, { target, count }) => {
     const { bot } = ctx
     const wanted = clamp(Math.round(num(count, 1)), 1, 20)
     const q = W.clean(target || 'hostile')
+    const skill = ctx.skills?.params('combat') || C.DEFAULT_SKILL
+    const anyHostile = ['hostile', 'monster', 'monsters', 'mob', 'mobs', 'nearest', 'enemy'].includes(q)
     let killed = 0
+    const tricks = { crits: 0, arrows: 0, ate: 0 }
     for (let i = 0; i < wanted; i++) {
       ctx.check()
       let entity = null
       const player = W.playerEntity(bot, target)
       if (player) entity = player
-      else if (['hostile', 'monster', 'monsters', 'mob', 'mobs', 'nearest', 'enemy'].includes(q)) {
-        entity = W.nearestHostile(bot, 32)
+      else if (anyHostile) {
+        entity = C.pickTarget(bot, C.nearbyThreats(bot, 32, e => !W.NEVER_AUTO_ATTACK.has(e.name)), skill)
       } else {
         const name = q.endsWith('s') && !bot.registry.entitiesByName?.[q] ? q.slice(0, -1) : q
         entity = bot.nearestEntity(e => e.name === name && e.position.distanceTo(bot.entity.position) < 32)
@@ -416,50 +421,51 @@ actions.attack = {
         if (killed) return `killed ${killed} ${target}; no more nearby`
         throw new Error(`no ${target} within 32 blocks`)
       }
-      const weapon = W.bestWeapon(bot)
-      if (weapon && bot.heldItem?.name !== weapon.name) await bot.equip(weapon, 'hand')
-      await bot.pvp.attack(entity)
       ctx.setStatus(`fighting ${W.entityLabel(entity)}`)
-      const started = Date.now()
-      while (entity.isValid && bot.pvp.target === entity && Date.now() - started < 60000) {
-        await ctx.sleep(250)
-      }
-      const dead = !entity.isValid
-      try { bot.pvp.forceStop ? bot.pvp.forceStop() : await bot.pvp.stop() } catch {}
-      if (!dead) {
+      const st = await C.engage(bot, entity, {
+        skill,
+        sleep: ctx.sleep,
+        check: ctx.check,
+        maxMs: 60000,
+        // A named target is the job; self-defense against others is left to the reflexes.
+        switchTargets: anyHostile,
+        onStatus: (t) => ctx.setStatus(t)
+      })
+      tricks.crits += st.crits; tricks.arrows += st.arrows; tricks.ate += st.ate
+      if (!st.killed) {
         if (killed) return `killed ${killed} ${target}, then the next one got away`
         throw new Error(`${W.entityLabel(entity)} got away`)
       }
-      killed++
-      ctx.skills?.award('combat', W.isHostile(entity) ? 8 : entity.type === 'player' ? 10 : 2, `killed a ${W.entityLabel(entity)}`)
-      ctx.resumeArgs = { target, count: wanted - killed }
+      killed += anyHostile ? Math.max(1, st.kills) : 1
+      ctx.skills?.award('combat', (W.isHostile(entity) ? 8 : entity.type === 'player' ? 10 : 2) + Math.min(4, st.crits), `killed a ${W.entityLabel(entity)}`)
+      ctx.resumeArgs = { target, count: Math.max(1, wanted - killed) }
       await pickupNearbyItems(ctx, 5)
+      if (killed >= wanted) break
     }
-    return `killed ${killed} ${target}`
+    const extra = [tricks.crits && `${tricks.crits} crits`, tricks.arrows && `${tricks.arrows} arrows shot`, tricks.ate && 'stopped to eat'].filter(Boolean)
+    return `killed ${killed} ${target}${extra.length ? ` (${extra.join(', ')})` : ''}`
   }
 }
 
 actions.guard = {
-  description: 'Stay here (or next to a player) and kill any monsters that come close, until told otherwise.',
+  description: 'Stay here (or next to a player) and kill any monsters that come close, most dangerous first, until told otherwise.',
   params: { player: 'optional player to protect', radius: 'default 10' },
   persistent: true,
   run: async (ctx, { player, radius }) => {
     const { bot } = ctx
     const r = clamp(num(radius, 10), 3, 24)
     const home = bot.entity.position.clone()
+    const skill = () => ctx.skills?.params('combat') || C.DEFAULT_SKILL
     ctx.setStatus(player ? `guarding ${player}` : `guarding ${fmtPos(home)}`)
     for (;;) {
       ctx.check()
       const protectee = player ? W.playerEntity(bot, player) : null
       const center = protectee ? protectee.position : home
-      const threat = W.nearestHostile(bot, r + 8, e => e.position.distanceTo(center) <= r && !W.NEVER_AUTO_ATTACK.has(e.name))
+      const threats = C.nearbyThreats(bot, r + 8, e => e.position.distanceTo(center) <= r && !W.NEVER_AUTO_ATTACK.has(e.name))
+      const threat = C.pickTarget(bot, threats, skill())
       if (threat) {
-        const weapon = W.bestWeapon(bot)
-        if (weapon && bot.heldItem?.name !== weapon.name) await bot.equip(weapon, 'hand')
-        await bot.pvp.attack(threat)
-        const started = Date.now()
-        while (threat.isValid && bot.pvp.target === threat && Date.now() - started < 30000) await ctx.sleep(250)
-        try { bot.pvp.forceStop ? bot.pvp.forceStop() : await bot.pvp.stop() } catch {}
+        const st = await C.engage(bot, threat, { skill: skill(), sleep: ctx.sleep, check: ctx.check, maxMs: 30000, radius: r })
+        if (st.kills) ctx.skills?.award('combat', 6 * st.kills, `guarded and killed ${st.labels.join(', ')}`)
         continue
       }
       if (bot.entity.position.distanceTo(center) > 4) {
@@ -1053,12 +1059,15 @@ actions.deposit = {
   params: { item: 'optional item name', count: 'optional (default all)' },
   run: async (ctx, { item, count }) => {
     const { bot } = ctx
-    let chest = findNearestBlock(bot, ['chest', 'trapped_chest', 'barrel'], 32)
+    // Your own chests (or ones nobody owns), never somebody else's.
+    let chest = null
+    try { chest = SN.usableContainer(ctx, 32) } catch (err) { if (!err.othersOnly || !bot.inventory.items().some(i => i.name === 'chest')) throw new Error(`${err.message}; I won't put my things in their chests`) }
     if (!chest && bot.inventory.items().some(i => i.name === 'chest')) chest = await placeUtilityBlock(ctx, 'chest')
     if (!chest) throw new Error('no chest or barrel within 32 blocks (and I have no chest to place)')
     await goto(ctx, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 60000)
     const container = await ctx.race(bot.openContainer(chest), 10000)
     const stored = {}
+    const theft = SN.auditOnOpen(ctx, chest, container)
     try {
       let items
       if (item) {
@@ -1085,11 +1094,13 @@ actions.deposit = {
         }
       }
     } finally {
+      SN.snapshotOnClose(ctx, chest, container, { claim: true })
       try { container.close() } catch {}
     }
     const list = Object.entries(stored).map(([n, c]) => `${c} ${n}`).join(', ')
-    if (!list) throw new Error('could not store anything (chest full?)')
-    return `stored ${list}`
+    const alarm = theft ? ` BUT ${ctx.social.describeTheft(theft)}` : ''
+    if (!list) throw new Error('could not store anything (chest full?)' + alarm)
+    return `stored ${list}${alarm}`
   }
 }
 
@@ -1098,23 +1109,27 @@ actions.withdraw = {
   params: { item: 'item name', count: 'how many (default all)' },
   run: async (ctx, { item, count }) => {
     const { bot } = ctx
-    const chest = findNearestBlock(bot, ['chest', 'trapped_chest', 'barrel'], 32)
+    let chest
+    try { chest = SN.usableContainer(ctx, 32) } catch (err) { throw new Error(`${err.message}. Taking from them would be stealing${ctx.social?.on('stealing') ? ' (that is what steal is for)' : ''}`) }
     if (!chest) throw new Error('no chest or barrel within 32 blocks')
     await goto(ctx, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 60000)
     const container = await ctx.race(bot.openContainer(chest), 10000)
+    const theft = SN.auditOnOpen(ctx, chest, container)
+    const alarm = theft ? `. ALSO: ${ctx.social.describeTheft(theft)}` : ''
     try {
       const q = W.clean(item)
       const items = container.containerItems()
       const match = items.find(i => i.name === q) || items.find(i => i.name.includes(q))
       if (!match) {
         const summary = [...new Set(items.map(i => i.name))].slice(0, 15).join(', ') || 'nothing'
-        throw new Error(`no ${item} in that chest (it has: ${summary})`)
+        throw new Error(`no ${item} in that chest (it has: ${summary})${alarm}`)
       }
       const available = items.filter(i => i.name === match.name).reduce((n, i) => n + i.count, 0)
       const n = clamp(Math.round(num(count, available)), 1, available)
       await container.withdraw(match.type, null, n)
-      return `took ${n} ${match.name}`
+      return `took ${n} ${match.name}${alarm}`
     } finally {
+      SN.snapshotOnClose(ctx, chest, container)
       try { container.close() } catch {}
     }
   }
@@ -1248,6 +1263,15 @@ const NETHER = require('./nether')
 actions.build_portal = NETHER.portalAction
 actions.nether_trip = NETHER.tripAction
 
+actions.explore = require('./explore').exploreAction
+
+// ---- social life: whose is what, feelings, and (when allowed) a little mischief
+actions.whose = SN.whoseAction
+actions.adjust_feelings = SN.adjustFeelingsAction
+actions.check_chests = SN.checkChestsAction
+actions.steal = SN.stealAction
+actions.sabotage = SN.sabotageAction
+
 actions.protect_area = {
   description: 'Mark an area as protected (a friend\'s house, a farm, a build): you will never dig, pillar or harvest inside it. Centered on you unless x,y,z given.',
   params: { name: 'short name', radius: 'blocks (default 10)', x: 'optional', y: 'optional', z: 'optional' },
@@ -1283,7 +1307,8 @@ actions.clean_inventory = {
   params: {},
   run: async (ctx) => {
     const { bot } = ctx
-    const chest = findNearestBlock(bot, ['chest', 'trapped_chest', 'barrel'], 16)
+    let chest = null
+    try { chest = SN.usableContainer(ctx, 16) } catch {}
     if (chest) return actions.deposit.run(ctx, {})
     const totals = {}
     for (const i of bot.inventory.items()) totals[i.name] = (totals[i.name] || 0) + i.count
@@ -1303,7 +1328,7 @@ actions.clean_inventory = {
 
 actions.note_lesson = {
   description: 'Write down a one-line lesson for one of your skills after something went wrong (or right), so you do better next time. Example: skill building, lesson "gather 80 blocks before starting a medium base".',
-  params: { skill: 'building | mining | combat | railways | farming | nether', lesson: 'one short sentence' },
+  params: { skill: 'building | mining | combat | railways | farming | exploration | nether', lesson: 'one short sentence' },
   instant: true,
   run: async (ctx, { skill, lesson }) => {
     if (!ctx.skills) throw new Error('skills are not available')

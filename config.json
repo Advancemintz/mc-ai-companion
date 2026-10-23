@@ -26,13 +26,23 @@
       "startTier": 1,
       "startTiers": {},
       "caps": {},
-      "affinity": { "building": 1.0, "mining": 1.0, "combat": 1.0, "railways": 1.0 },
+      "affinity": { "building": 1.0, "mining": 1.0, "combat": 1.0, "railways": 1.0, "farming": 1.0, "exploration": 1.0 },
       "xpRate": 1
     },
     "memoryName": "",
     "maxChainedSteps": 10,
     "reconnect": true,
     "showThoughts": true
+  },
+
+  "social": {
+    "enabled": true,
+    "feelings": { "enabled": true, "start": 0, "decayPerDay": 2, "modelMaxPerHour": 30 },
+    "ownership": { "enabled": true, "learn": true, "claimRadius": 12 },
+    "stealing": { "enabled": true, "feelingAtMost": -20, "maxShare": 0.25, "maxItemTypes": 3, "minChestItems": 4, "witnessRadius": 24, "patienceSeconds": 20, "cooldownMinutes": 20 },
+    "theftDetection": { "enabled": true },
+    "sabotage": { "enabled": true, "feelingAtMost": -80, "maxBlocks": 6, "cooldownMinutes": 60, "kinds": ["torches", "crops", "doorway"] },
+    "protected": []
   },
 
   "reflexes": {

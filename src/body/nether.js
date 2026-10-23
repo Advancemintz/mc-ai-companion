@@ -198,11 +198,14 @@ async function fightMobs (ctx, mobName, origin, radius, deadline, stats) {
     ctx.check()
     const mob = bot.nearestEntity(e => e.name === mobName && e.position.distanceTo(origin) <= radius)
     if (!mob) break
-    if (!bot.pvp) throw new Error('no combat plugin loaded')
-    bot.pvp.attack(mob)
-    const until = Math.min(deadline, Date.now() + 30000)
-    while (Date.now() < until && bot.entities[mob.id] && !danger(bot)) await ctx.sleep(250)
-    try { bot.pvp.forceStop?.() } catch {}
+    const C = require('./combat')
+    await C.engage(bot, mob, {
+      skill: ctx.skills?.params('combat') || C.DEFAULT_SKILL,
+      sleep: ctx.sleep,
+      check: ctx.check,
+      maxMs: Math.max(1000, Math.min(deadline - Date.now(), 30000)),
+      stopHealth: 10
+    })
     if (!bot.entities[mob.id]) { stats.kills++; ctx.skills?.award('nether', 6, `killed a ${mobName}`); ctx.skills?.award('combat', 4) }
     await require('./actions').helpers.pickupNearbyItems(ctx, 6)
   }

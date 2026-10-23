@@ -42,7 +42,7 @@ test('affinity makes a bot learn some skills faster', () => {
   assert.strictEqual(builder.state('building').xp, 100)
   assert.strictEqual(builder.state('combat').xp, 25)
   assert.match(builder.describe(), /Building tier 2\/4 "Cabin builder" \(a natural talent\)/)
-  assert.match(builder.describe(), /Combat tier 1\/4 "Panicky" \(not your strength\)/)
+  assert.match(builder.describe(), /Combat tier 1\/5 "Panicky" \(not your strength\)/)
 })
 
 test('trying something too advanced gives a friendly, actionable error', () => {

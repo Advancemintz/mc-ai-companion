@@ -34,6 +34,9 @@ const DEFAULTS = {
     reconnect: true,
     showThoughts: true
   },
+  // Feelings, ownership, theft detection, stealing and sabotage (src/brain/social.js has the
+  // full defaults). Built for servers where the players are AI bots: list any humans in "protected".
+  social: {},
   reflexes: {
     autoEat: true,
     selfDefense: true,

@@ -1,12 +1,12 @@
 # MC AI Companion
 
-![version](https://img.shields.io/badge/version-0.8.1-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
+![version](https://img.shields.io/badge/version-0.9.0-blue) ![minecraft](https://img.shields.io/badge/Minecraft%20Java-1.21.x-green) ![node](https://img.shields.io/badge/node-%3E%3D20-brightgreen) ![license](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, fights, crafts and smelts · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · server operators stay in control.
+**Features at a glance:** chats and decides with any LLM · gets better with practice (skill tiers) · mines, crafts and smelts · fights with real technique (bows, crits, strafing) · explores and maps the land · builds real bases in several designs and upgrades them over time · farms crops and breeds animals · digs proper mines · builds Nether portals and makes careful trips · lays powered minecart railways · has its own goals, needs, memory and personality · holds lasting feelings about every player, knows whose base is whose, notices theft, and (if it comes to that) steals a little · server operators stay in control.
 
 📜 [Changelog](CHANGELOG.md) · 🌐 [Project page](https://advancemintz.github.io/mc-ai-companion/)
 
-> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (115 automated tests: 59 unit + 56 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
+> **Status: early.** Version 0.1 has been run on a real server. Later features were built and checked against simulated worlds and mock AI servers (157 automated tests: 75 unit + 82 simulated-world), but not yet played on a real server. Bug reports with terminal output are very welcome.
 
 A Minecraft bot that joins your world as a player. An LLM is its **brain**: it chats and makes the big decisions. Plain code is its **body**: it handles walking, mining, fighting, crafting and building at full game speed.
 
@@ -50,19 +50,20 @@ Every bot starts as a beginner and improves by doing, like a real player. Each s
 |---|---|
 | **Building** | 1 Dirt-hut novice: small huts only (flat-roofed box or peaked), misses the odd block · 2 Cabin builder (100 XP): small `build_base` bases in four designs, forgets some windows and torches; can add a storage room · 3 Homesteader (400 XP, needs mining 2): all base sizes with every detail; + watchtower and farmhouse designs; + bunker · 4 Architect (1200 XP, needs mining 3): two-storey houses; + the end-game manor and hillside fortress; + second storey and enchanting room upgrades |
 | **Mining** | 1 Surface scraper: only stone and ores it can see · 2 Tunneler (60): its own `mine` for coal, copper and iron, with short branches · 3 Prospector (250): every ore, full branch mines and veins · 4 Deep miner (800): tighter, longer branches and bigger veins |
-| **Combat** | 1 Panicky: slow to react, sometimes just runs, flees early · 2 Scrapper (40) · 3 Fighter (200): uses a shield and backs off from creepers · 4 Veteran (700): calm, fights on at lower health |
+| **Combat** | 1 Panicky: slow to react, flails, sometimes just runs, flees early · 2 Scrapper (40): times swings to the weapon cooldown, fights the most dangerous monster first, backs off to eat · 3 Fighter (200): shield, backs off from creepers, strafes, bow on skeletons and creepers up to 16 blocks · 4 Veteran (700): critical hits, leads moving targets with the bow (24 blocks), fights on at lower health · 5 Champion (1600): crits almost every swing, unpredictable strafing, bow out to 32 blocks |
+| **Exploration** | 1 Wanderer: `explore` up to 96 blocks from home for ~3 minutes; notices biomes and villages · 2 Scout (50): 192 blocks, 6 min; + caves, lava, other people's bases; heads for unexplored land · 3 Pathfinder (200): 384 blocks, 10 min; + structures (temples, outposts, dungeons, ruined portals...) · 4 Cartographer (600): 768 blocks, 15 min; marks big finds with a torch post |
 | **Railways** | unlocks at building 2 + mining 2 · 1 Track layer: lines up to 100 blocks · 2 Engineer (120): up to 300 · 3 Rail baron (500): any length |
 | **Farming** | 1 Seed planter: a 5x5 wheat patch next to water it finds · 2 Gardener (60): 9x9 farms anywhere (brings its own water), carrots, potatoes, beetroot, a fence · 3 Rancher (220): + `breed_animals` · 4 Agronomist (600): 11x11 farms and bone meal |
 | **The Nether** | unlocks at combat 3 + mining 3 · 1 Portal builder: `build_portal`, short peeks through · 2 Day tripper (80): quartz, Nether gold, glowstone within 32 blocks · 3 Fortress raider (300): nether wart and blaze rods within 96 · 4 Piglin trader (900): bartering gold with piglins |
 
-- **XP comes from results:** a finished base or upgrade, ores mined (diamonds count most), fights won, crops harvested, animals bred, Nether trips survived, track laid. Failed attempts give a little too.
+- **XP comes from results:** a finished base or upgrade, ores mined (diamonds count most), fights won (more for critical hits), crops harvested, new land mapped and things found, animals bred, Nether trips survived, track laid. Failed attempts give a little too.
 - **Some tiers need other skills first.** For example, Homesteader needs mining tier 2.
 - **Too-advanced requests fail politely:** "I haven't learned that yet… to improve: build huts and walls". The bot then practises the easier version.
 - **Lessons:** after a failure the bot can save a one-line lesson with `note_lesson`, and it reads its lessons before trying again.
 - **Specialisation:** `skills.affinity` makes each bot learn some skills faster. Give mike 1.5 for building and boot 1.5 for combat, and they naturally grow into different roles.
 - **Saved progress:** skills are stored in the bot's memory file. `!wipe confirm` resets them too, and `!resetskills confirm` resets only the skills.
 
-**Universal behaviours** are the same for every bot at every level, because every player just knows them: walking, eating, reflexes (except how well it fights), memory, tidy placement, respecting bases, and obeying operators.
+**Universal behaviours** are the same for every bot at every level, because every player just knows them: walking, eating, reflexes (except how well it fights), memory, tidy placement, respecting bases, feelings and ownership, and obeying operators.
 
 **Settings** (`bot.skills` in `config.json`):
 
@@ -147,6 +148,7 @@ Just chat normally:
 - "get me 10 oak logs", "mine some iron", "make me a stone pickaxe"
 - "smelt the iron", "build a hut", "make a 7 long wall out of dirt"
 - "put your stuff in the chest", "give me your bread", "go sleep"
+- "go explore up north", "whose chest is that?", "did anyone take stuff from your chests?"
 - "what do you have?", "how are you doing?"
 
 Nobody owns the bot. Whether it does what you ask depends on its personality, its mood and what it thinks of you.
@@ -172,6 +174,13 @@ Nobody owns the bot. Whether it does what you ask depends on its personality, it
 | `!skill <name/all> cap <n>` / `nocap` | OP | limit a skill's tier |
 | `!skill <name/all> xp <n>` / `lock` / `unlock` / `reset` | OP | set XP, freeze progress, or start over |
 | `!resetskills confirm` | OP | every skill back to tier 1 (memories kept) |
+| `!social` | OP | show which social features are on |
+| `!social <all\|feelings\|ownership\|stealing\|theft\|sabotage> on\|off` | OP | switch a social feature (or all of them) on or off, live. Switched-off actions disappear from the model's action list |
+| `!feelings [player]` | OP | how it feels about everyone (or one player, with the reasons) |
+| `!feel <player> <-100..100>` / `!feel <player> reset` | OP | set or reset how it feels about someone |
+| `!protect <player>` / `!unprotect <player>` | OP | protected players are never stolen from or sabotaged, and its feelings about them never drop below -50 |
+| `!suspects` | OP | thefts from its chests and who it suspects |
+| `!confess` | OP | what it has stolen and sabotaged lately |
 
 **How it knows who is OP.** Minecraft doesn't tell other players who is an operator, so the bot recognizes them in three ways:
 
@@ -189,8 +198,9 @@ The terminal window counts as an operator too.
 |---|---|
 | `follow_player`, `go_to_player`, `go_to` | pathfinding with parkour, digging and bridging |
 | `collect_block` | finds, mines and picks up blocks. Understands "wood", "iron", "cobblestone"... Checks for the right tool. |
-| `attack` | a mob type, "hostile", or a player. Equips the best weapon and picks up drops. |
-| `guard` | stays put (or by a player) and kills monsters that come close |
+| `attack` | a mob type, "hostile" (the most dangerous monster around), or a player. Fights with its combat tier (see below) and picks up drops. |
+| `guard` | stays put (or by a player) and kills monsters that come close, most dangerous first |
+| `explore` | a trip into land it hasn't seen, remembering what it finds, home before dark (see below) |
 | `craft` | finds or places a crafting table. Says exactly which ingredients are missing. |
 | `smelt` | uses a nearby or carried furnace and picks fuel automatically |
 | `build` | hut (walls, roof, doorway; `size` 2-7), wall, tower, platform, floor. Picks a flat, open, dry spot within 16 blocks on its own, clears leaves/plants, levels small bumps, fills dips, and mixes materials if one isn't enough. The first hut is saved as home. |
@@ -206,8 +216,89 @@ The terminal window counts as an operator too.
 | `remember_place`, `go_to_place`, `forget_place` | named places in long-term memory (home, mine, village...) |
 | `set_goal`, `complete_goal`, `note_player` | the bot's own goals and what it knows about players |
 | `place_block`, `equip`, `give`, `drop`, `eat`, `sleep` | |
-| `deposit`, `withdraw` | nearest chest or barrel |
+| `deposit`, `withdraw` | nearest chest or barrel that is its own (or nobody's), never someone else's; checks its own chests for theft while it's there |
+| `whose` | whose base a spot or the nearest chest is in |
+| `adjust_feelings` | the model nudges its feelings about someone for things the game can't see (an insult, a favour); capped |
+| `check_chests` | goes round its own chests and reports anything missing, with suspects |
+| `steal`, `sabotage` | the mischief described under *Feelings, property and mischief* below, with strict limits |
 | `find_block`, `wait`, `stop` | |
+
+### Fighting
+
+Fights are handled by code, so they're fast, but how well the bot fights depends on its combat tier. The same engine runs the self-defense reflex, `attack`, `guard` and blaze hunting in the Nether.
+
+- **Timed swings (tier 2+).** It waits for the weapon's attack cooldown (a sword every 0.625 s, an axe every 1-1.25 s) so every hit does full damage. A beginner flails.
+- **Most dangerous first (tier 2+).** A creeper walking up beats the zombie it's already fighting; skeletons and witches beat spiders. A beginner turns on whatever is nearest or hit it last.
+- **Backing off to eat (tier 2+).** When its health drops low mid-fight it retreats a few blocks, eats (a golden apple if things are serious), and goes back in.
+- **Shield and creeper dodging (tier 3+).** It raises a shield between swings, and steps back after every hit on a creeper so the fuse never finishes.
+- **Strafing (tier 3+).** In melee it circles its target instead of standing still: steady side-steps at tier 3 and 4, unpredictable at tier 5.
+- **Bow (tier 3+).** With a bow and arrows, it shoots skeletons, strays, creepers, witches, pillagers and blazes while they're still at a distance (16 blocks at tier 3, 24 at tier 4, 32 at tier 5). Aim follows real arrow physics (speed, drag and gravity); from tier 4 it leads moving targets. Too close, out of arrows or no line of sight, and it switches to the sword.
+- **Critical hits (tier 4+).** It jumps and strikes on the way down for +50% damage: a good share of swings at tier 4, nearly every one at tier 5.
+
+### Exploring
+
+`explore` (optionally with a `direction`: north, northeast, east...) is a round trip:
+
+1. It picks the direction with the most land it hasn't seen (a beginner just picks any new-ish direction). The map of what it has seen is kept in memory as 32x32-block areas, so each trip covers new ground.
+2. It walks out in hops (16-32 blocks, by tier), looking around after each one, and veers around water or cliffs that block the way.
+3. It remembers what it finds: **biomes**, **villages** (bells, villagers), **caves** (cave air, shafts into the dark), **lava** (as a hazard), **structures** (dungeons, trial chambers, ruined portals, desert and jungle temples, pillager outposts, witch huts, ocean monuments, mineshafts, strongholds, ancient cities, trail ruins, igloos, mansions, shipwrecks) and **other people's bases** (furniture out in the wild, away from villages). Villages, caves and structures become places it can `go_to_place` later; a Cartographer marks them with a torch on a cobblestone post.
+4. It comes home when it would otherwise be caught by nightfall (it works out how long the walk home takes and keeps some daylight spare), when it gets hurt or hungry, when its pockets are full, when it reaches the edge of its range (after one sideways sweep), or when the trip time is up.
+
+A fight or a snack in the middle of a trip doesn't end it: the trip resumes where it was. STATE shows how much of the land within 96, 192 and 384 blocks of home has been explored, and the nearest finds. Its needs and the autopilot suggest a trip on mornings when most of the land around home is still unknown.
+
+## Feelings, property and mischief
+
+This part is built for **servers where the players are AI bots** (like a livestream of bots starting a world together). The bots form opinions of each other, keep track of whose things are whose, and the ones that end up disliking each other may help themselves to each other's chests. Every part can be switched off, and any player can be protected. If a human plays too, list them in `social.protected`.
+
+**Feelings.** Every player gets a lasting score from -100 to +100: deep hatred (-80 and below), hate, dislike, neutral, like, friend, best friend (80 and up). They change by themselves when things happen:
+
+| Event | Change |
+|---|---|
+| gives you something | +4 |
+| hits you | -6 |
+| kills you | -25 |
+| breaks a block in your base | -10 |
+| opens your chest | -2 |
+| seen opening a chest that then came up short | -30 |
+| was hanging around a chest that came up short | -12, shared between the suspects |
+
+The model can also nudge feelings with `adjust_feelings` for things the game can't see (a kind word, an insult, a broken promise), at most ±15 at a time and 30 points per player per hour, so feelings come from what actually happens rather than one bad chat line. Scores drift back toward neutral by `decayPerDay` points per real day. STATE shows the feelings toward people nearby (with the last reasons), and the prompt tells the bot to let them show in how it talks and whether it helps.
+
+**Ownership.** The bot knows whose base a block or chest is in:
+1. its own bases, home and farm;
+2. bases it was told about (`remember_place` with an `owner`);
+3. bases it worked out by watching: someone hanging around the same furniture again and again, opening the chests there, or sleeping in the bed there. When it's sure, it says so ("It looks like slip lives around...").
+
+`whose` answers the question for any spot. `deposit` and `withdraw` only ever use its own chests or ones nobody owns; taking from someone else's chest is stealing, which is a separate, limited action.
+
+**Noticing theft.** Every time the bot closes one of its own chests, it remembers what was inside. The next time it opens that chest (to deposit, withdraw, or with `check_chests`), it compares. If something is missing it logs a theft with a ranked list of suspects: anyone **seen opening that chest** (the lid opening while they stood next to it) comes first, then anyone **seen hanging around** since it last looked. Their feelings drop, STATE shows a THEFT line, and the bot decides in character what to do about it: confront, accuse, demand it back, or quietly hold a grudge. It also notices live when someone opens its chest or breaks a block in its base.
+
+**Sneaky stealing** (`steal`, from a player or a specific chest):
+- only from players it feels `stealing.feelingAtMost` (-20) or worse about, and never from protected players;
+- it checks for **witnesses** first: anyone within `witnessRadius` who could see the chest (walls block the view, glass and leaves don't). It waits up to `patienceSeconds` for them to leave, then backs out if they don't. It checks again once it's at the chest, and crouches while it works;
+- it takes a **modest share of the most useful items**: at most `maxShare` (25%) of each stack and of the whole chest, at most `maxItemTypes` (3) kinds, best stuff first (diamonds, ingots, golden apples before bread, before torches; junk like cobblestone is never worth it);
+- it **never empties a chest**, never takes the last of something unless the chest is well stocked, and skips chests with fewer than `minChestItems` items;
+- it lies low for `cooldownMinutes` before stealing from the same player again, and it remembers what it did (STATE shows it as "Your secret"), so it can lie about it or own up as its personality sees fit.
+
+**Sabotage** (`sabotage`) only unlocks at **deep hatred** (`sabotage.feelingAtMost`, -80), never against protected players, only unseen, and it's small: taking a few of their torches or lanterns (`torches`), harvesting their ripe crops without replanting (`crops`), or blocking their door with one block from the outside (`doorway`). At most `maxBlocks` per go, once per `cooldownMinutes`. It never breaks walls, never uses lava, fire or TNT.
+
+**Ideas.** Now and then, if a player it dislikes enough seems to be away from their base, the bot gets a `[sneaky idea]` (or a `[revenge idea]` at deep hatred). Like the railway offers, it's the personality that decides whether to act on it. It's also nudged to `check_chests` when it hasn't looked in a while and others have been around.
+
+**Settings** (`social` in `config.json`; `!social` switches them live):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `enabled` | true | the whole social side |
+| `feelings.enabled` / `start` / `decayPerDay` / `modelMaxPerHour` | true / 0 / 2 / 30 | lasting feelings; starting score; drift back toward 0 per day; how far the model may move one player's score per hour |
+| `ownership.enabled` / `learn` / `claimRadius` | true / true / 12 | knowing whose base is whose; working it out by watching; base radius |
+| `stealing.enabled` | true | the `steal` action |
+| `stealing.feelingAtMost` | -20 | only steal from players at or below this score |
+| `stealing.maxShare` / `maxItemTypes` / `minChestItems` | 0.25 / 3 / 4 | how little it takes |
+| `stealing.witnessRadius` / `patienceSeconds` / `cooldownMinutes` | 24 / 20 / 20 | how careful it is |
+| `theftDetection.enabled` | true | checking its own chests |
+| `sabotage.enabled` / `feelingAtMost` | true / -80 | the `sabotage` action, and the deep-hatred threshold |
+| `sabotage.maxBlocks` / `cooldownMinutes` / `kinds` | 6 / 60 / torches, crops, doorway | how much, how often, and which kinds are allowed |
+| `protected` | [] | players never stolen from or sabotaged (operators can add more with `!protect`) |
 
 ### Bases
 
@@ -313,7 +404,7 @@ The Nether is a late skill: it unlocks only at combat 3 and mining 3. If your pe
 
 **Reflexes** run without the LLM, several times a second:
 
-- **Self-defense:** fights monsters within `defendRadius` and whatever hits it.
+- **Self-defense:** fights monsters within `defendRadius` and whatever hits it, with all the technique its combat tier allows (see *Fighting*).
 - **Flee:** runs away when health drops to `fleeHealth` or below and a monster is near, then eats.
 - **Auto-eat:** eats the best food when hungry.
 - **Auto-armor:** wears the best armor it picks up.
@@ -347,6 +438,7 @@ When a reflex interrupts a task, the task resumes afterwards with what's left. F
 | `bot.reconnect` | true | reconnect after disconnects |
 | `bot.showThoughts` | true | print the model's reasoning in the terminal |
 | `reflexes.*` | | turn reflexes on/off, `defendRadius`, `fleeHealth` |
+| `social.*` | see *Feelings, property and mischief* | feelings, ownership, theft detection, stealing, sabotage, protected players |
 | `llm.temperature` | 0.6 | creativity (ignored by OpenAI reasoning models unless set per provider) |
 | `llm.maxHistory` | 16 | past messages sent each time (more = better memory, slower and costlier) |
 | `llm.timeoutSeconds` | 90 | give up on a slow model after this long |
@@ -405,6 +497,11 @@ src/body/placement.js where furniture goes (walls, double chests, beds)
 src/body/zones.js     protected areas and no-grief pathfinding
 src/body/idle.js      idle animation
 src/brain/autopilot.js  fallback activities when the model idles
+src/body/combat.js    the fighting engine: priorities, timed swings, crits, strafing, shield, bow ballistics, eating
+src/body/explore.js   the explore action: direction choice, scanning for finds, coming home in time
+src/brain/social.js   feelings, ownership, chest ledger and theft suspects, stealing/sabotage rules
+src/brain/socialSenses.js  watching players: chest opens, sightings, whose base, griefing, ideas
+src/body/sneaky.js    whose/steal/sabotage/check_chests/adjust_feelings, witnesses, chest audits
 src/body/railway.js   railway routes, track, power, stations
 src/brain/railOffers.js  weekly railway offers to players
 src/skills/registry.js  the skill library: tiers, XP, prerequisites, params (data)
@@ -414,7 +511,7 @@ src/body/executor.js  runs plans, cancellation, reflex interrupts + resume
 src/body/reflexes.js  eat / defend / flee / swim
 src/body/perception.js  the "what I see" summary sent to the model
 test/                 unit tests (npm test), no Minecraft needed
-sim/                  simulated-world tests (npm run test:sim)
+sim/                  simulated-world tests (npm run test:sim); sim/harness.js is the fake world
 ```
 
 ## Contributing
@@ -425,6 +522,6 @@ Issues and pull requests are welcome. Run `npm test` (fast unit tests) and `npm 
 
 - Package as a single download (Node's single-executable apps, or Electron for a settings window).
 - A "skill library": save successful multi-step plans and reuse them.
-- Smarter combat (creepers, skeletons, shields, bows) and danger reflexes (lava, falls, getting stuck).
+- Danger reflexes (lava, falls, getting stuck), crossbows and tridents.
 - Schematic-based building, doors and beds in huts, villager trading, bastions, melon/pumpkin and auto-farms.
 - Voice chat via speech-to-text.

@@ -11,6 +11,8 @@ const log = require('../util/log')
 const MAX_ACTIVE_GOALS = 5
 const MAX_JOURNAL = 40
 const MAX_NOTES_PER_PLAYER = 6
+const MAX_DISCOVERIES = 80
+const EXPLORE_CELL = 32
 
 function emptyMemory () {
   return { places: {}, goals: [], journal: [], players: {}, operators: [], projects: {}, nextGoalId: 1, createdAt: new Date().toISOString() }
@@ -162,6 +164,89 @@ class Memory {
     return this.data.zones.length < before
   }
 
+  // ------------------------------------------------------------ exploration
+  // The explored map is kept as 32x32-block cells per dimension: "cx,cz" -> when first seen.
+  _cells (dimension) {
+    const dim = String(dimension || 'overworld').replace('minecraft:', '')
+    this.data.explored = this.data.explored || {}
+    this.data.explored[dim] = this.data.explored[dim] || {}
+    return this.data.explored[dim]
+  }
+
+  // Mark the cells around pos (radius in cells) as seen. Returns how many were new.
+  markExplored (pos, dimension, radiusCells = 1) {
+    const cells = this._cells(dimension)
+    const cx = Math.floor(pos.x / EXPLORE_CELL); const cz = Math.floor(pos.z / EXPLORE_CELL)
+    let fresh = 0
+    for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+      for (let dz = -radiusCells; dz <= radiusCells; dz++) {
+        const k = `${cx + dx},${cz + dz}`
+        if (!cells[k]) { cells[k] = Date.now(); fresh++ }
+      }
+    }
+    if (fresh) this.save()
+    return fresh
+  }
+
+  isExplored (pos, dimension) {
+    return !!this._cells(dimension)[`${Math.floor(pos.x / EXPLORE_CELL)},${Math.floor(pos.z / EXPLORE_CELL)}`]
+  }
+
+  // Share of the cells within radius of center that have been seen (0..1).
+  exploredShare (center, radius, dimension) {
+    const cells = this._cells(dimension)
+    const r = Math.ceil(radius / EXPLORE_CELL)
+    const ccx = Math.floor(center.x / EXPLORE_CELL); const ccz = Math.floor(center.z / EXPLORE_CELL)
+    let total = 0; let seen = 0
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.hypot(dx, dz) > r) continue
+        total++
+        if (cells[`${ccx + dx},${ccz + dz}`]) seen++
+      }
+    }
+    return total ? seen / total : 0
+  }
+
+  // Things found while exploring (villages, caves, lava, structures, other people's bases).
+  // Returns { entry, isNew }. The same kind of find within `merge` blocks counts as the same one.
+  addDiscovery (kind, label, pos, dimension = 'overworld', note = '', merge = 48) {
+    this.data.discoveries = this.data.discoveries || []
+    const dim = String(dimension).replace('minecraft:', '')
+    const near = this.data.discoveries.find(d => d.kind === kind && d.label === label && d.dimension === dim &&
+      Math.hypot(d.x - pos.x, d.z - pos.z) <= merge)
+    if (near) return { entry: near, isNew: false }
+    const entry = { kind, label: String(label).slice(0, 40), x: Math.floor(pos.x), y: Math.floor(pos.y), z: Math.floor(pos.z), dimension: dim, note: String(note || '').slice(0, 120), at: new Date().toISOString() }
+    this.data.discoveries.push(entry)
+    if (this.data.discoveries.length > MAX_DISCOVERIES) this.data.discoveries.splice(0, this.data.discoveries.length - MAX_DISCOVERIES)
+    this.save()
+    return { entry, isNew: true }
+  }
+
+  discoveriesNear (pos, dimension = 'overworld', limit = 6) {
+    const dim = String(dimension).replace('minecraft:', '')
+    return (this.data.discoveries || []).filter(d => d.dimension === dim)
+      .map(d => ({ ...d, distance: Math.round(Math.hypot(d.x - pos.x, d.z - pos.z)) }))
+      .sort((a, b) => a.distance - b.distance).slice(0, limit)
+  }
+
+  // A biome seen for the first time? Returns true when new.
+  noteBiome (name, pos) {
+    if (!name) return false
+    this.data.biomes = this.data.biomes || {}
+    if (this.data.biomes[name]) return false
+    this.data.biomes[name] = { x: Math.floor(pos.x), z: Math.floor(pos.z), at: new Date().toISOString() }
+    this.save()
+    return true
+  }
+
+  // A free place name: "village", then "village_2", "village_3"...
+  freePlaceName (base) {
+    const b = slug(base)
+    if (!this.data.places[b]) return b
+    for (let i = 2; ; i++) if (!this.data.places[`${b}_${i}`]) return `${b}_${i}`
+  }
+
   // ------------------------------------------------------------ goals
   activeGoals () {
     return this.data.goals.filter(g => g.status === 'active')
@@ -273,6 +358,14 @@ class Memory {
     for (const r of this.railways()) {
       lines.push(`Railway "${r.name}" to ${r.toName}: ${r.status === 'done' ? 'finished' : `${r.built || 0}/${r.cols.length} blocks built${r.needs ? `, needs ${r.needs}` : ''} (build_railway to continue)`}`)
     }
+    if (this.data.explored) {
+      const center = home && home.dimension === String(dimension).replace('minecraft:', '') ? home : pos
+      const parts = []
+      for (const r of [96, 192, 384]) parts.push(`${Math.round(this.exploredShare(center, r, dimension) * 100)}% within ${r}`)
+      lines.push(`Map: explored ${parts.join(', ')} blocks of ${home ? 'home' : 'here'}${this.data.biomes ? `; biomes seen: ${Object.keys(this.data.biomes).slice(0, 12).join(', ')}` : ''}`)
+    }
+    const finds = this.discoveriesNear(pos, dimension, 6)
+    if (finds.length) lines.push('Finds: ' + finds.map(d => `${d.label} at ${d.x} ${d.y} ${d.z} (${d.distance}m${d.note ? `, ${d.note}` : ''})`).join('; '))
     const zones = this.data.zones || []
     if (zones.length) lines.push('Protected areas: ' + zones.map(z => `${z.name} (${z.x} ${z.y} ${z.z}, r=${z.radius})`).join('; '))
     const journal = this.recentJournal(5)
@@ -281,4 +374,4 @@ class Memory {
   }
 }
 
-module.exports = { Memory, slug }
+module.exports = { Memory, slug, EXPLORE_CELL }
